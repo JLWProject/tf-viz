@@ -1,0 +1,97 @@
+{
+  "name": "tf-graph-visualizer",
+  "displayName": "Terraform Graph Visualizer",
+  "description": "Static, offline dependency-graph visualizer for Terraform configuration directories. Click a node to jump straight to its source.",
+  "version": "0.0.10",
+  "private": true,
+  "publisher": "jlwproject",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JLWProject/tf-viz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JLWProject/tf-viz/issues"
+  },
+  "homepage": "https://github.com/JLWProject/tf-viz#readme",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#211a4d",
+    "theme": "dark"
+  },
+  "keywords": [
+    "terraform",
+    "hcl",
+    "infrastructure as code",
+    "iac",
+    "dependency graph",
+    "visualization",
+    "graph",
+    "azure",
+    "aws"
+  ],
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/*.tf"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tfGraphVisualizer.open",
+        "title": "Terraform: Show Dependency Graph",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "tfGraphVisualizer.openForFolder",
+        "title": "Terraform: Show Dependency Graph for Folder…"
+      },
+      {
+        "command": "tfGraphVisualizer.refresh",
+        "title": "Terraform: Refresh Dependency Graph"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "tfGraphVisualizer.open",
+          "when": "resourceExtname == .tf",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p webview/tsconfig.json",
+    "test": "mocha",
+    "pretest": "npm run typecheck",
+    "test:integration": "node out/test/runTest.js",
+    "pretest:integration": "npm run build && tsc -p tsconfig.test.json"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.1.1",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^3.0.0",
+    "esbuild": "^0.28.1",
+    "glob": "^13.0.6",
+    "jsdom": "^29.1.1",
+    "mocha": "^11.7.6",
+    "playwright": "^1.61.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^3.0.0"
+  }
+}

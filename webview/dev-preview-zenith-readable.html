@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<!--
+  Dev-only preview harness - NOT shipped with the extension, NOT part of any
+  build target (see .vscodeignore's `dev-preview*.html` exclusion, which
+  still matches this file). Same real webview.js/webview.css bundle and
+  stubbed acquireVsCodeApi() as dev-preview.html/dev-preview-light.html, but
+  differs in two ways:
+
+    - The faked --vscode-* :root tokens below are NOT hand-picked
+      approximations - they're every one of Zenith Readable's real
+      326 color tokens (repo-relative:
+      vscode-theme/zenith-readable/themes/zenith-readable.json), converted
+      programmatically (id.replace(/\./g, '-'), prefixed --vscode-) straight
+      from its `colors` JSON object - not typed by hand, not approximated.
+      Exists specifically to verify the new `--tf-accent-*` derived accent
+      tokens in theme.css (see that file's top-of-file comment) actually
+      pick up this real theme's real palette for node borders/gradients/
+      icon badges/the module-cluster dot, instead of silently falling back
+      to VS Code's generic built-in charts.blue/purple/orange the way the
+      old direct var(--vscode-charts-*) references did - Zenith Readable
+      sets none of the charts.* tokens, same as most community themes.
+
+    - The embedded GRAPH_MODEL below is a NEW real captured payload (not
+      reused from dev-preview.html, which has no `module` kind node in it)
+      - run through the actual tf-hcl-graph Go binary and then the actual
+      buildGraphModel() TS function, same as dev-preview.html's own payload,
+      against a two-file fixture: root
+      `azurerm_resource_group` -> `module.network` (a local relative-path
+      child module containing its own `azurerm_virtual_network` ->
+      `azurerm_subnet`) -> `azurerm_linux_virtual_machine`, plus one
+      `data.azurerm_client_config` source, two `variable`s (one plain, one
+      `sensitive`), one `locals`, and two `output`s (one of them itself
+      referencing the child module's own output) - deliberately a superset
+      of dev-preview.html's mix specifically so resource/data/module all
+      appear together in the same graph, per this change's verification
+      requirements.
+
+  Open this file directly in a browser (file:// is fine).
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>tf-graph-visualizer webview dev preview (Zenith Readable)</title>
+    <link rel="stylesheet" href="dist/webview.css" />
+    <style>
+      /* Real Zenith Readable color tokens, generated programmatically from
+         vscode-theme/zenith-readable/themes/zenith-readable.json's own `colors` object -
+         see this file's top comment. Font tokens below are NOT theme colors
+         (VS Code derives those from editor settings, not the color theme),
+         so they're faked the same plausible way dev-preview.html/
+         dev-preview-light.html already do. */
+      :root {
+        --vscode-activityBar-background: #181512;
+        --vscode-activityBar-border: #383028;
+        --vscode-activityBarBadge-background: #262018;
+        --vscode-button-background: #C87A10;
+        --vscode-button-border: #C87A10;
+        --vscode-button-foreground: #FFF4D6;
+        --vscode-contrastBorder: #383028;
+        --vscode-dropdown-background: #181512;
+        --vscode-dropdown-border: #383028;
+        --vscode-dropdown-foreground: #FFF4D6;
+        --vscode-editor-background: #181512;
+        --vscode-editor-foldBackground: #18151260;
+        --vscode-editor-foreground: #D0B890;
+        --vscode-editor-hoverHighlightBackground: #26201868;
+        --vscode-editor-inactiveSelectionBackground: #26201868;
+        --vscode-editor-lineHighlightBackground: #231F1A;
+        --vscode-editor-lineHighlightBorder: #2C2720;
+        --vscode-editor-rangeHighlightBackground: #38302890;
+        --vscode-editor-selectionBackground: #B0681833;
+        --vscode-editor-selectionHighlightBackground: #38302890;
+        --vscode-editor-wordHighlightBackground: #38302890;
+        --vscode-editor-wordHighlightStrongBackground: #38302890;
+        --vscode-editorBracketMatch-background: #383028;
+        --vscode-editorBracketMatch-border: #383028;
+        --vscode-editorCodeLens-foreground: #5E5044;
+        --vscode-editorCursor-background: #181512;
+        --vscode-editorCursor-foreground: #FFF4D6;
+        --vscode-editorError-border: #383028;
+        --vscode-editorError-foreground: #D42A0E;
+        --vscode-editorGroup-border: #383028;
+        --vscode-editorGroup-dropBackground: #B068181A;
+        --vscode-editorGroupHeader-tabsBackground: #161310;
+        --vscode-editorGroupHeader-tabsBorder: #383028;
+        --vscode-editorGutter-background: #181512;
+        --vscode-editorGutter-deletedBackground: #D42A0E;
+        --vscode-editorGutter-modifiedBackground: #181512;
+        --vscode-editorHoverWidget-background: #181512;
+        --vscode-editorHoverWidget-border: #383028;
+        --vscode-editorIndentGuide-background1: #272318;
+        --vscode-editorLineNumber-activeForeground: #AE9468;
+        --vscode-editorLineNumber-foreground: #504438;
+        --vscode-editorLink-activeForeground: #D0B890;
+        --vscode-editorMarkerNavigation-background: #181512;
+        --vscode-editorMarkerNavigationError-background: #181512;
+        --vscode-editorMarkerNavigationWarning-background: #383028;
+        --vscode-editorOverviewRuler-border: #383028;
+        --vscode-editorOverviewRuler-commonContentForeground: #383028;
+        --vscode-editorOverviewRuler-currentContentForeground: #D42A0E;
+        --vscode-editorOverviewRuler-incomingContentForeground: #90BA38;
+        --vscode-editorRuler-foreground: #383028;
+        --vscode-editorSuggestWidget-background: #181512;
+        --vscode-editorSuggestWidget-border: #383028;
+        --vscode-editorSuggestWidget-foreground: #D0B890;
+        --vscode-editorSuggestWidget-selectedBackground: #383028;
+        --vscode-editorWarning-border: #383028;
+        --vscode-editorWarning-foreground: #E03830;
+        --vscode-editorWhitespace-foreground: #302C24;
+        --vscode-editorWidget-background: #181512;
+        --vscode-editorWidget-border: #383028;
+        --vscode-errorForeground: #D42A0E;
+        --vscode-extensionButton-prominentBackground: #383028;
+        --vscode-extensionButton-prominentForeground: #FFF4D6;
+        --vscode-extensionButton-prominentHoverBackground: #383028;
+        --vscode-focusBorder: #383028;
+        --vscode-foreground: #DCCCA0;
+        --vscode-input-background: #383028;
+        --vscode-input-foreground: #FFF4D6;
+        --vscode-input-placeholderForeground: #AE9468;
+        --vscode-inputOption-activeBorder: #262018;
+        --vscode-inputValidation-errorBorder: #D42A0E;
+        --vscode-inputValidation-infoBorder: #C06838;
+        --vscode-inputValidation-warningBorder: #F0B828;
+        --vscode-list-background: #181512;
+        --vscode-list-activeSelectionBackground: #383028;
+        --vscode-list-activeSelectionForeground: #FFF4D6;
+        --vscode-list-dropBackground: #181512;
+        --vscode-list-errorForeground: #D42A0E;
+        --vscode-list-focusBackground: #383028;
+        --vscode-list-highlightForeground: #E8A830;
+        --vscode-list-hoverBackground: #383028;
+        --vscode-list-inactiveSelectionBackground: #383028;
+        --vscode-list-inactiveSelectionForeground: #FFF4D6;
+        --vscode-list-warningForeground: #F0B828;
+        --vscode-menu-background: #181512;
+        --vscode-menu-selectionBackground: #383028;
+        --vscode-peekView-border: #262018;
+        --vscode-peekViewEditor-background: #383028;
+        --vscode-peekViewEditor-matchHighlightBackground: #E8A830;
+        --vscode-peekViewResult-background: #383028;
+        --vscode-peekViewResult-fileForeground: #FFF4D6;
+        --vscode-peekViewResult-lineForeground: #FFF4D6;
+        --vscode-peekViewResult-matchHighlightBackground: #E8A830;
+        --vscode-peekViewResult-selectionBackground: #383028;
+        --vscode-peekViewResult-selectionForeground: #FFF4D6;
+        --vscode-peekViewTitle-background: #383028;
+        --vscode-peekViewTitleDescription-foreground: #C07820;
+        --vscode-peekViewTitleLabel-foreground: #FFF4D6;
+        --vscode-scrollbarSlider-activeBackground: #FFF4D680;
+        --vscode-selection-background: #B0681840;
+        --vscode-sideBar-background: #181512;
+        --vscode-sideBar-border: #383028;
+        --vscode-sideBar-foreground: #DCCCA0;
+        --vscode-sideBarSectionHeader-background: #181512;
+        --vscode-sideBarSectionHeader-border: #383028;
+        --vscode-sideBarSectionHeader-foreground: #FFF4D6;
+        --vscode-sideBarTitle-foreground: #FFF4D6;
+        --vscode-statusBar-background: #383028;
+        --vscode-statusBar-border: #383028;
+        --vscode-statusBar-debuggingBackground: #D42A0E;
+        --vscode-statusBar-debuggingForeground: #383028;
+        --vscode-statusBar-foreground: #FFF4D6;
+        --vscode-statusBar-noFolderBackground: #383028;
+        --vscode-statusBar-noFolderForeground: #FFF4D6;
+        --vscode-statusBarItem-prominentBackground: #D42A0E;
+        --vscode-statusBarItem-prominentHoverBackground: #F0B828;
+        --vscode-statusBarItem-remoteBackground: #C06838;
+        --vscode-statusBarItem-remoteForeground: #FFF4D6;
+        --vscode-tab-activeBackground: #181512;
+        --vscode-tab-activeBorder: #E8A830;
+        --vscode-tab-activeForeground: #FFF4D6;
+        --vscode-tab-border: #383028;
+        --vscode-tab-inactiveBackground: #181512;
+        --vscode-tab-inactiveForeground: #9E8460;
+        --vscode-tab-unfocusedActiveForeground: #FFF4D6;
+        --vscode-tab-unfocusedInactiveForeground: #9E8460;
+        --vscode-terminal-ansiBlack: #383028;
+        --vscode-terminal-ansiBlue: #C07820;
+        --vscode-terminal-ansiBrightBlack: #C07820;
+        --vscode-terminal-ansiBrightGreen: #90BA38;
+        --vscode-terminal-ansiBrightRed: #D42A0E;
+        --vscode-terminal-ansiBrightYellow: #F0B828;
+        --vscode-terminal-ansiCyan: #E8A830;
+        --vscode-terminal-ansiGreen: #90BA38;
+        --vscode-terminal-ansiMagenta: #C06838;
+        --vscode-terminal-ansiRed: #D42A0E;
+        --vscode-terminal-ansiWhite: #FFF4D6;
+        --vscode-terminal-ansiYellow: #F0B828;
+        --vscode-terminal-background: #181512;
+        --vscode-terminal-foreground: #FFF4D6;
+        --vscode-titleBar-activeBackground: #161310;
+        --vscode-titleBar-activeForeground: #FFF4D6;
+        --vscode-titleBar-border: #383028;
+        --vscode-titleBar-inactiveBackground: #161310;
+        --vscode-titleBar-inactiveForeground: #9E8460;
+        --vscode-panel-background: #181512;
+        --vscode-panel-border: #383028;
+        --vscode-panelTitle-activeBorder: #E8A830;
+        --vscode-panelTitle-activeForeground: #FFF4D6;
+        --vscode-panelTitle-inactiveForeground: #9E8460;
+        --vscode-breadcrumb-background: #161310;
+        --vscode-breadcrumb-foreground: #AE9468;
+        --vscode-breadcrumb-activeSelectionForeground: #FFF4D6;
+        --vscode-breadcrumb-focusForeground: #FFF4D6;
+        --vscode-minimap-background: #141210;
+        --vscode-minimap-selectionHighlight: #B0681860;
+        --vscode-editorGroup-emptyBackground: #181512;
+        --vscode-editorPane-background: #181512;
+        --vscode-notifications-background: #1E1A14;
+        --vscode-notifications-border: #383028;
+        --vscode-notificationToast-border: #383028;
+        --vscode-notificationsErrorIcon-foreground: #D42A0E;
+        --vscode-notificationsWarningIcon-foreground: #F0B828;
+        --vscode-notificationsInfoIcon-foreground: #E8A830;
+        --vscode-scrollbarSlider-background: #38302840;
+        --vscode-scrollbarSlider-hoverBackground: #50443870;
+        --vscode-quickInput-background: #1E1A14;
+        --vscode-quickInput-foreground: #DCCCA0;
+        --vscode-quickInputList-focusBackground: #383028;
+        --vscode-quickInputList-focusForeground: #FFF4D6;
+        --vscode-quickInputTitle-background: #161310;
+        --vscode-settings-headerForeground: #FFF4D6;
+        --vscode-settings-modifiedItemIndicator: #E8A830;
+        --vscode-settings-dropdownBackground: #1E1A14;
+        --vscode-settings-dropdownBorder: #383028;
+        --vscode-settings-dropdownForeground: #DCCCA0;
+        --vscode-settings-checkboxBackground: #1E1A14;
+        --vscode-settings-checkboxBorder: #383028;
+        --vscode-settings-checkboxForeground: #DCCCA0;
+        --vscode-settings-textInputBackground: #1E1A14;
+        --vscode-settings-textInputBorder: #383028;
+        --vscode-settings-textInputForeground: #DCCCA0;
+        --vscode-settings-numberInputBackground: #1E1A14;
+        --vscode-settings-numberInputBorder: #383028;
+        --vscode-settings-numberInputForeground: #DCCCA0;
+        --vscode-gitDecoration-modifiedResourceForeground: #E8A830;
+        --vscode-gitDecoration-deletedResourceForeground: #D42A0E;
+        --vscode-gitDecoration-addedResourceForeground: #90BA38;
+        --vscode-gitDecoration-untrackedResourceForeground: #90BA38;
+        --vscode-gitDecoration-ignoredResourceForeground: #5E5044;
+        --vscode-gitDecoration-conflictingResourceForeground: #F0B828;
+        --vscode-editorInlayHint-background: #2C2720;
+        --vscode-editorInlayHint-foreground: #9E8460;
+        --vscode-editorGhostText-foreground: #5E5044;
+        --vscode-editorGhostText-border: #38302840;
+        --vscode-debugToolBar-background: #1E1A14;
+        --vscode-debugToolBar-border: #383028;
+        --vscode-debugConsole-infoForeground: #DCCCA0;
+        --vscode-debugConsole-warningForeground: #F0B828;
+        --vscode-debugConsole-errorForeground: #D42A0E;
+        --vscode-debugConsole-sourceForeground: #D0B890;
+        --vscode-debugConsoleInputIcon-foreground: #E8A830;
+        --vscode-diffEditor-insertedTextBackground: #90BA3820;
+        --vscode-diffEditor-removedTextBackground: #D42A0E20;
+        --vscode-diffEditor-insertedLineBackground: #90BA3814;
+        --vscode-diffEditor-removedLineBackground: #D42A0E14;
+        --vscode-keybindingLabel-background: #2C2720;
+        --vscode-keybindingLabel-border: #504438;
+        --vscode-keybindingLabel-bottomBorder: #383028;
+        --vscode-keybindingLabel-foreground: #DCCCA0;
+        --vscode-walkThrough-embeddedEditorBackground: #141210;
+        --vscode-welcomePage-background: #181512;
+        --vscode-welcomePage-tileBackground: #1E1A14;
+        --vscode-welcomePage-tileBorder: #383028;
+        --vscode-commandCenter-background: #1E1A14;
+        --vscode-commandCenter-border: #383028;
+        --vscode-commandCenter-foreground: #D0B890;
+        --vscode-commandCenter-activeForeground: #FFF4D6;
+        --vscode-commandCenter-activeBackground: #383028;
+        --vscode-commandCenter-activeBorder: #C07820;
+        --vscode-menu-foreground: #DCCCA0;
+        --vscode-menu-selectionForeground: #FFF4D6;
+        --vscode-menu-selectionBorder: #C07820;
+        --vscode-menu-separatorBackground: #383028;
+        --vscode-menu-border: #383028;
+        --vscode-menubar-selectionBackground: #383028;
+        --vscode-menubar-selectionForeground: #FFF4D6;
+        --vscode-menubar-selectionBorder: #C07820;
+        --vscode-widget-shadow: #0A080680;
+        --vscode-editorSuggestWidget-selectedForeground: #FFF4D6;
+        --vscode-editorSuggestWidget-highlightForeground: #E8A830;
+        --vscode-editorSuggestWidget-focusHighlightForeground: #F0B828;
+        --vscode-editorSuggestWidgetStatus-foreground: #9E8460;
+        --vscode-editorHoverWidget-foreground: #DCCCA0;
+        --vscode-editorHoverWidget-statusBarBackground: #2C2720;
+        --vscode-editorWidget-foreground: #DCCCA0;
+        --vscode-editorWidget-resizeBorder: #E8A830;
+        --vscode-editor-findMatchBackground: #C0781840;
+        --vscode-editor-findMatchBorder: #E8A830;
+        --vscode-editor-findMatchHighlightBackground: #C0781826;
+        --vscode-editor-findMatchHighlightBorder: #C0781860;
+        --vscode-pickerGroup-border: #383028;
+        --vscode-pickerGroup-foreground: #AE9468;
+        --vscode-quickInputList-focusIconForeground: #E8A830;
+        --vscode-terminalCursor-foreground: #E8A830;
+        --vscode-terminalCursor-background: #181512;
+        --vscode-terminal-selectionBackground: #B0681840;
+        --vscode-terminal-findMatchBackground: #C0781860;
+        --vscode-terminal-findMatchHighlightBackground: #C0781830;
+        --vscode-terminal-inactiveSelectionBackground: #B0681820;
+        --vscode-badge-background: #383028;
+        --vscode-badge-foreground: #E8A830;
+        --vscode-activityBarBadge-foreground: #FFF4D6;
+        --vscode-toolbar-hoverBackground: #38302860;
+        --vscode-toolbar-activeBackground: #50443870;
+        --vscode-toolbar-hoverOutline: #38302800;
+        --vscode-statusBarItem-hoverBackground: #50443860;
+        --vscode-statusBarItem-activeBackground: #60544870;
+        --vscode-editorActionList-background: #1E1A14;
+        --vscode-editorActionList-foreground: #DCCCA0;
+        --vscode-editorActionList-focusBackground: #383028;
+        --vscode-editorActionList-focusForeground: #FFF4D6;
+        --vscode-inlineChat-background: #1E1A14;
+        --vscode-inlineChat-border: #383028;
+        --vscode-inlineChat-shadow: #0A080680;
+        --vscode-inlineChatInput-background: #2C2720;
+        --vscode-inlineChatInput-border: #504438;
+        --vscode-chat-requestBackground: #1E1A14;
+        --vscode-chat-requestBorder: #383028;
+        --vscode-chat-slashCommandBackground: #383028;
+        --vscode-chat-slashCommandForeground: #E8A830;
+        --vscode-outputView-background: #181512;
+        --vscode-outputViewStickyScroll-background: #1E1A14;
+        --vscode-extensionBadge-remoteForeground: #FFF4D6;
+        --vscode-extensionBadge-remoteBackground: #C06838;
+        --vscode-windowTitle-activeForeground: #FFF4D6;
+        --vscode-windowTitle-inactiveForeground: #9E8460;
+        --vscode-window-activeBorder: #383028;
+        --vscode-window-inactiveBorder: #2C2720;
+        --vscode-activityBar-activeBackground: #2C2720;
+        --vscode-activityBar-activeBorder: #E8A830;
+        --vscode-activityBar-activeFocusBorder: #E8A830;
+        --vscode-activityBar-foreground: #FFF4D6;
+        --vscode-activityBar-inactiveForeground: #C4A878;
+        --vscode-panelSectionHeader-background: #161310;
+        --vscode-panelSectionHeader-foreground: #FFF4D6;
+        --vscode-panelSectionHeader-border: #383028;
+        --vscode-panelInput-border: #383028;
+        --vscode-terminal-tab-activeBorder: #E8A830;
+        --vscode-terminalStickyScroll-background: #181512;
+        --vscode-terminalStickyScrollHover-background: #2C2720;
+        --vscode-terminalCommandDecoration-defaultBackground: #9E8460;
+        --vscode-terminalCommandDecoration-successBackground: #90BA38;
+        --vscode-terminalCommandDecoration-errorBackground: #D42A0E;
+        --vscode-terminalOverviewRuler-border: #383028;
+        --vscode-editorGroupHeader-noTabsBackground: #161310;
+        --vscode-tab-hoverBackground: #2C2720;
+        --vscode-tab-unfocusedHoverBackground: #2C2720;
+        --vscode-tab-lastPinnedBorder: #383028;
+        --vscode-chatEditor-background: #181512;
+        --vscode-chat-avatarBackground: #2C2720;
+        --vscode-chat-avatarForeground: #E8A830;
+        --vscode-chat-editedFileForeground: #E8A830;
+        --vscode-chat-list-foldedBorder: #383028;
+        --vscode-secondarySideBar-background: #181512;
+        --vscode-secondarySideBar-border: #383028;
+        --vscode-secondarySideBarSectionHeader-background: #181512;
+        --vscode-secondarySideBarSectionHeader-border: #383028;
+        --vscode-secondarySideBarTitle-foreground: #FFF4D6;
+        --vscode-editorOverviewRuler-errorForeground: #D42A0E;
+        --vscode-editorOverviewRuler-warningForeground: #F0B828;
+        --vscode-editorOverviewRuler-infoForeground: #E8A830;
+        --vscode-editorOverviewRuler-findMatchForeground: #C07820;
+        --vscode-editorBracketHighlight-foreground1: #E8A830;
+        --vscode-editorBracketHighlight-foreground2: #D0B890;
+        --vscode-editorBracketHighlight-foreground3: #90BA38;
+        --vscode-editorBracketHighlight-unexpectedBracket-foreground: #D42A0E;
+        --vscode-editorGroup-dropIntoPromptBackground: #1E1A14;
+        --vscode-editorGroup-dropIntoPromptForeground: #DCCCA0;
+        --vscode-editorGroup-dropIntoPromptBorder: #383028;
+        --vscode-sash-hoverBorder: #E8A830;
+        --vscode-editorStickyScroll-background: #161310;
+        --vscode-editorStickyScroll-border: #383028;
+        --vscode-editorStickyScrollHover-background: #2C2720;
+        --vscode-editorGutter-addedBackground: #90BA38;
+        --vscode-editorGutter-commentRangeForeground: #9E8460;
+        --vscode-editorGutter-foldingControlForeground: #9E8460;
+        --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --vscode-font-size: 13px;
+        --vscode-editor-font-family: Menlo, Consolas, monospace;
+      }
+    </style>
+    <script>
+      // Stub of the ambient global every webview gets exactly once from VS
+      // Code - here it just logs everything instead of bridging to a real
+      // extension host.
+      window.acquireVsCodeApi = function () {
+        return {
+          postMessage(message) {
+            console.log('[dev-preview] postMessage from webview:', message);
+          },
+          getState() {
+            return undefined;
+          },
+          setState() {
+            /* no-op */
+          },
+        };
+      };
+    </script>
+  </head>
+  <body>
+    <script src="dist/webview.js"></script>
+    <script>
+      // Real captured GraphModel - see this file's top comment for full
+      // provenance (tf-hcl-graph + buildGraphModel(), a two-module fixture
+      // with resource/data/module/variable/output/locals all present).
+      var GRAPH_MODEL = {"nodes":[{"address":"var.location","type":"","name":"location","module":"root","kind":"variable","attributes":{"description":"Azure region to deploy into.","default":"uksouth"},"referencedVariables":[]},{"address":"var.admin_password","type":"","name":"admin_password","module":"root","kind":"variable","attributes":{"description":"Local admin password for the VM.","sensitive":"true","default":"super-secret-default"},"referencedVariables":[]},{"address":"local.environment_tag","type":"","name":"environment_tag","module":"root","kind":"locals","attributes":{"environment_tag":"production"},"referencedVariables":[]},{"address":"data.azurerm_client_config.current","type":"azurerm_client_config","name":"current","module":"root","kind":"data","attributes":{},"referencedVariables":[]},{"address":"azurerm_resource_group.rg","type":"azurerm_resource_group","name":"rg","module":"root","kind":"resource","attributes":{"name":"rg-example"},"referencedVariables":["var.location"]},{"address":"module.network","type":"","name":"network","module":"root","kind":"module","attributes":{"source":"./network"},"referencedVariables":[]},{"address":"azurerm_linux_virtual_machine.vm","type":"azurerm_linux_virtual_machine","name":"vm","module":"root","kind":"resource","attributes":{"name":"vm-example"},"referencedVariables":["var.admin_password"]},{"address":"output.vm_id","type":"","name":"vm_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the provisioned virtual machine."},"referencedVariables":[]},{"address":"output.subnet_id","type":"","name":"subnet_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the network module's subnet."},"referencedVariables":[]},{"address":"module.network.var.resource_group_name","type":"","name":"resource_group_name","module":"module.network","kind":"variable","attributes":{"description":"Resource group to deploy the network into."},"referencedVariables":[]},{"address":"module.network.var.location","type":"","name":"location","module":"module.network","kind":"variable","attributes":{"description":"Azure region."},"referencedVariables":[]},{"address":"module.network.azurerm_virtual_network.vnet","type":"azurerm_virtual_network","name":"vnet","module":"module.network","kind":"resource","attributes":{"name":"vnet-example","address_space":"10.0.0.0/16"},"referencedVariables":["module.network.var.resource_group_name","module.network.var.location"]},{"address":"module.network.azurerm_subnet.subnet","type":"azurerm_subnet","name":"subnet","module":"module.network","kind":"resource","attributes":{"name":"subnet-example","address_prefixes":"10.0.1.0/24"},"referencedVariables":["module.network.var.resource_group_name"]},{"address":"module.network.output.subnet_id","type":"","name":"subnet_id","module":"module.network","kind":"output","attributes":{},"referencedVariables":[]}],"edges":[{"from":"module.network","to":"azurerm_resource_group.rg"},{"from":"azurerm_linux_virtual_machine.vm","to":"azurerm_resource_group.rg"},{"from":"azurerm_linux_virtual_machine.vm","to":"module.network.azurerm_subnet.subnet"},{"from":"output.vm_id","to":"azurerm_linux_virtual_machine.vm"},{"from":"output.subnet_id","to":"module.network.azurerm_subnet.subnet"},{"from":"module.network.azurerm_virtual_network.vnet","to":"azurerm_resource_group.rg"},{"from":"module.network.azurerm_subnet.subnet","to":"azurerm_resource_group.rg"},{"from":"module.network.azurerm_subnet.subnet","to":"module.network.azurerm_virtual_network.vnet"},{"from":"module.network.output.subnet_id","to":"module.network.azurerm_subnet.subnet"}],"addressLocations":{"var.location":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":1},"var.admin_password":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":6},"local.environment_tag":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":13},"data.azurerm_client_config.current":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":16},"azurerm_resource_group.rg":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":19},"module.network":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":24},"azurerm_linux_virtual_machine.vm":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":30},"output.vm_id":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":37},"output.subnet_id":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/main.tf","line":42},"module.network.var.resource_group_name":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/network/main.tf","line":1},"module.network.var.location":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/network/main.tf","line":5},"module.network.azurerm_virtual_network.vnet":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/network/main.tf","line":9},"module.network.azurerm_subnet.subnet":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/network/main.tf","line":16},"module.network.output.subnet_id":{"file":"/private/tmp/claude-501/-Users-jordanwalker-Library-CloudStorage-OneDrive-JLWProject-repo-personal-misc/6d9e466f-11ef-425f-a1c3-d669afb76788/scratchpad/fixture/network/main.tf","line":23}}};
+
+      window.postMessage({ type: 'graph', payload: GRAPH_MODEL }, '*');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,152 @@
+{
+  "errors": [],
+  "modules": [
+    {
+      "prefix": "",
+      "directory": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals",
+      "expanded": true,
+      "blocks": [
+        {
+          "kind": "resource",
+          "type": "random_pet",
+          "name": "base",
+          "address": "random_pet.base",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+            "startLine": 1,
+            "startColumn": 1,
+            "endLine": 3,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "length",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                "startLine": 2,
+                "startColumn": 3,
+                "endLine": 2,
+                "endColumn": 13
+              },
+              "references": [],
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "kind": "locals",
+          "type": "",
+          "name": "foo",
+          "address": "local.foo",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+            "startLine": 6,
+            "startColumn": 3,
+            "endLine": 6,
+            "endColumn": 46
+          },
+          "attributes": [
+            {
+              "name": "foo",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                "startLine": 6,
+                "startColumn": 3,
+                "endLine": 6,
+                "endColumn": 46
+              },
+              "references": [
+                {
+                  "expression": "random_pet.base.id",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                    "startLine": 6,
+                    "startColumn": 19,
+                    "endLine": 6,
+                    "endColumn": 37
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "locals",
+          "type": "",
+          "name": "unrelated",
+          "address": "local.unrelated",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+            "startLine": 7,
+            "startColumn": 3,
+            "endLine": 7,
+            "endColumn": 30
+          },
+          "attributes": [
+            {
+              "name": "unrelated",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                "startLine": 7,
+                "startColumn": 3,
+                "endLine": 7,
+                "endColumn": 30
+              },
+              "references": [],
+              "value": "static-value"
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "type": "local_file",
+          "name": "uses_local",
+          "address": "local_file.uses_local",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+            "startLine": 10,
+            "startColumn": 1,
+            "endLine": 13,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "filename",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                "startLine": 11,
+                "startColumn": 3,
+                "endLine": 11,
+                "endColumn": 26
+              },
+              "references": [],
+              "value": "output.txt"
+            },
+            {
+              "name": "content",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                "startLine": 12,
+                "startColumn": 3,
+                "endLine": 12,
+                "endColumn": 23
+              },
+              "references": [
+                {
+                  "expression": "local.foo",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/locals/main.tf",
+                    "startLine": 12,
+                    "startColumn": 14,
+                    "endLine": 12,
+                    "endColumn": 23
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

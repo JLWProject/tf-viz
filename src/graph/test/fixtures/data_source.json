@@ -1,0 +1,122 @@
+{
+  "errors": [],
+  "modules": [
+    {
+      "prefix": "",
+      "directory": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source",
+      "expanded": true,
+      "blocks": [
+        {
+          "kind": "data",
+          "type": "azurerm_resource_group",
+          "name": "existing",
+          "address": "data.azurerm_resource_group.existing",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+            "startLine": 1,
+            "startColumn": 1,
+            "endLine": 3,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                "startLine": 2,
+                "startColumn": 3,
+                "endLine": 2,
+                "endColumn": 23
+              },
+              "references": [],
+              "value": "rg-existing"
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "type": "azurerm_virtual_network",
+          "name": "vnet",
+          "address": "azurerm_virtual_network.vnet",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+            "startLine": 5,
+            "startColumn": 1,
+            "endLine": 10,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                "startLine": 6,
+                "startColumn": 3,
+                "endLine": 6,
+                "endColumn": 39
+              },
+              "references": [],
+              "value": "vnet-example"
+            },
+            {
+              "name": "resource_group_name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                "startLine": 7,
+                "startColumn": 3,
+                "endLine": 7,
+                "endColumn": 66
+              },
+              "references": [
+                {
+                  "expression": "data.azurerm_resource_group.existing.name",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                    "startLine": 7,
+                    "startColumn": 25,
+                    "endLine": 7,
+                    "endColumn": 66
+                  }
+                }
+              ]
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                "startLine": 8,
+                "startColumn": 3,
+                "endLine": 8,
+                "endColumn": 70
+              },
+              "references": [
+                {
+                  "expression": "data.azurerm_resource_group.existing.location",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                    "startLine": 8,
+                    "startColumn": 25,
+                    "endLine": 8,
+                    "endColumn": 70
+                  }
+                }
+              ]
+            },
+            {
+              "name": "address_space",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/data_source/main.tf",
+                "startLine": 9,
+                "startColumn": 3,
+                "endLine": 9,
+                "endColumn": 40
+              },
+              "references": [],
+              "value": "10.0.0.0/16"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,625 @@
+/*
+ * Theme-aware styling for the graph webview. Every color below comes from a
+ * `--vscode-*` CSS custom property VS Code injects into every webview (the
+ * dotted theme-color-token name lowercased/dash-joined, e.g. the
+ * `editor.background` token from VS Code's theme color reference becomes
+ * `--vscode-editor-background`) - confirmed against VS Code's own theme
+ * color reference doc, not guessed. This file intentionally hardcodes no
+ * hex colors so the graph automatically matches the user's real light/dark/
+ * high-contrast theme, with no toggle needed.
+ */
+
+/* ---- Derived accent tokens (node-kind color coding) --------------------
+   `charts.blue`/`charts.purple`/`charts.orange` (the old direct source of
+   every node-kind accent below) turned out to be a bad foundation - not
+   because the CSS var is ever literally *missing* (see next paragraph), but
+   because most themes never override it, so it silently renders as VS
+   Code's own generic built-in blue/purple/orange, unrelated to the active
+   theme's real palette. Confirmed empirically: neither of this repo's two
+   real, complete community themes (`warm-luma`/`zenith-readable`, sibling
+   `vscode-theme/` folder, 326 color tokens each) sets any `charts.*` token.
+
+   Important nuance, confirmed by grepping the actual shipped VS Code build
+   under `.vscode-test/` (`getWebviewThemeData()` /
+   `ColorThemeData.prototype.getColor` in workbench.desktop.main.js): VS
+   Code injects a `--vscode-<id>` custom property for literally every
+   registered color, always, resolving through that color's own default
+   (often itself a *reference* to another color id, cascading until it hits
+   a literal per-light/dark/hc hex) whenever the active theme doesn't set it
+   directly - so `var(--tf-accent-primary)` is never actually *undefined*
+   in a real webview, it's just generic. That means a naive
+   `var(--vscode-charts-blue, var(--vscode-textLink-foreground)))` chain
+   with charts-blue listed *first* would never really fall through to the
+   second option in production - whichever token is listed first always
+   wins once it resolves to anything, and charts.blue always resolves to
+   *something*. So order here matters and is deliberately NOT charts-first:
+   each chain leads with a token this repo's two real themes actually do
+   set explicitly (confirmed by a small script reading both themes' JSON
+   `colors` object directly - not eyeballed), falls through a second
+   reasonably-common token, and only then reaches the old charts.* value as
+   an inert-in-practice safety net (kept per the plan's ask, and it *does*
+   matter for any hypothetical non-VS-Code embedder that only sets a bare
+   handful of `--vscode-*` vars, e.g. this project's own dev-preview
+   harnesses).
+
+   Token coverage found (both real themes share byte-identical `colors`
+   blocks - only their `tokenColors` syntax palettes differ):
+     charts.blue/purple/orange/green   - unset in both
+     textLink.foreground/activeForeground - unset in both
+     progressBar.background            - unset in both
+     focusBorder                       - set, BUT only 1.4:1 contrast
+                                          against warm-luma's own editor
+                                          background (#383028 on #181512) -
+                                          a border in this color would be
+                                          nearly invisible, so it's kept as
+                                          a *fallback* slot only, never the
+                                          first choice, for any accent.
+     badge.background                  - set, but happens to equal
+                                          focusBorder's exact value in both
+                                          themes here (same 1.4:1 problem) -
+                                          same reasoning, not used as a
+                                          first choice.
+     activityBarBadge.background       - set, but only 1.13:1 contrast -
+                                          worse, not used at all.
+     button.background                 - set, 5.4:1 contrast - good.
+     statusBarItem.remoteBackground    - set, 4.6:1 contrast, and a
+                                          genuinely different hue from
+                                          button.background in both real
+                                          themes tested - good, and a
+                                          natural second distinct accent.
+   Only two tokens cleared both bars (explicitly set by real themes *and*
+   good contrast against their real background) - button.background and
+   statusBarItem.remoteBackground - so the module/config accents below
+   inevitably reuse one of those as their first choice too in at least one
+   of the two themes tested here; see the `.node-kind-module`/`.node-config`
+   `filter: hue-rotate(...)` rules further down, which exist specifically so
+   two node kinds sharing the same underlying resolved color still read as
+   visually distinct instead of silently collapsing to one indistinguishable
+   accent. */
+:root {
+  --tf-accent-primary: var(
+    --vscode-button-background,
+    var(--vscode-textLink-foreground, var(--vscode-charts-blue))
+  );
+  --tf-accent-module: var(
+    --vscode-statusBarItem-remoteBackground,
+    var(--vscode-focusBorder, var(--vscode-charts-purple))
+  );
+  --tf-accent-config: var(
+    --vscode-button-background,
+    var(--vscode-focusBorder, var(--vscode-charts-orange))
+  );
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* ---- Toolbar ---------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex: 0 0 auto;
+}
+
+.toolbar-search {
+  flex: 1 1 auto;
+  min-width: 120px;
+  max-width: 320px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.toolbar-search::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+}
+
+.toolbar-search:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.toolbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toolbar-toggle input[type='checkbox'] {
+  accent-color: var(--vscode-checkbox-background);
+  border: 1px solid var(--vscode-checkbox-border);
+}
+
+.toolbar-button {
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.toolbar-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+.toolbar-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* ---- Main area (graph canvas + info panel) ------------------------------
+   Sits below the toolbar, filling the rest of the viewport - the graph
+   canvas and the Outputs/Locals info panel (see below) are laid out side by
+   side within it. */
+
+.main-area {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---- Graph canvas ------------------------------------------------------ */
+
+.graph-container {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.graph-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none; /* pan/zoom is handled entirely via pointer/wheel events */
+}
+
+.graph-svg:active {
+  cursor: grabbing;
+}
+
+.error-state {
+  padding: 16px;
+  color: var(--vscode-errorForeground, var(--vscode-editor-foreground));
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: pre-wrap;
+}
+
+/* ---- Outputs/Locals info panel -----------------------------------------
+   A docked side panel, outside the SVG canvas entirely (its own scroll
+   region, independent of the graph's pan/zoom) - shown only while the "show
+   variables, outputs & locals" toggle is on and there's at least one output
+   or local left to list (see main.ts's renderInfoPanel). Kept visually
+   compact and consistent with the toolbar/card aesthetic rather than
+   competing with the graph itself. */
+
+.info-panel[hidden] {
+  display: none;
+}
+
+.info-panel {
+  flex: 0 0 260px;
+  max-width: 320px;
+  overflow-y: auto;
+  border-left: 1px solid var(--vscode-panel-border);
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+
+.info-section + .info-section {
+  margin-top: 18px;
+}
+
+.info-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.info-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+}
+
+.info-row:hover {
+  background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.08));
+}
+
+.info-row:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.info-row-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+}
+
+.info-row-detail {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.85;
+}
+
+/* ---- Module clusters ---------------------------------------------------*/
+
+/* Softly-rounded, filled "zone" panel - deliberately NOT a dashed outline
+   (the old wireframe-y treatment): a low-opacity tinted fill reads as a
+   distinct grouped area on its own, no harsh dashed stroke needed to signal
+   "this is structural, not a real box". */
+.cluster-rect {
+  fill: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.06));
+  stroke: var(--vscode-panel-border);
+  stroke-width: 1;
+  stroke-opacity: 0.55;
+}
+
+.cluster-label-dot {
+  fill: var(--tf-accent-module);
+  opacity: 0.65;
+}
+
+.cluster-label {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---- Edges ------------------------------------------------------------ */
+
+.edge-path {
+  fill: none;
+  stroke: var(--vscode-editorLineNumber-foreground, var(--vscode-panel-border));
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.edge-arrowhead {
+  fill: var(--vscode-editorLineNumber-foreground, var(--vscode-panel-border));
+}
+
+/* ---- Node shadow/gradient defs (render.ts's <defs>) --------------------*/
+
+/* feDropShadow's flood color/opacity, driven from CSS (not raw SVG
+   attributes - see render.ts's buildShadowFilter) so the shadow itself
+   tracks the real theme-aware "floating widget elevation" token VS Code
+   already defines for exactly this purpose, rather than a hardcoded color
+   that would look wrong in one of light/dark (a flat black shadow reads
+   fine on a dark theme but far too heavy/muddy on a light one; the widget-
+   shadow token is already tuned per-theme for this). */
+.node-shadow-flood {
+  flood-color: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.45));
+  flood-opacity: 0.4;
+}
+
+.node-shadow-flood-hover {
+  flood-color: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.5));
+  flood-opacity: 0.55;
+}
+
+/* Gradient base stop: opaque editor background at the top of every node
+   card - see render.ts's buildNodeGradient for the accent-wash bottom stop
+   per node-kind "bucket". */
+.node-gradient-stop-start {
+  stop-color: var(--vscode-editor-background);
+  stop-opacity: 1;
+}
+
+.node-gradient-stop-end-resource,
+.node-gradient-stop-end-data {
+  stop-color: var(--tf-accent-primary);
+  stop-opacity: 0.08;
+}
+
+.node-gradient-stop-end-module {
+  stop-color: var(--tf-accent-module);
+  stop-opacity: 0.09;
+}
+
+.node-gradient-stop-end-config {
+  stop-color: var(--tf-accent-config);
+  stop-opacity: 0.08;
+}
+
+/* ---- Nodes -------------------------------------------------------------*/
+
+.node {
+  cursor: grab;
+}
+
+/* Whole-card dragging (see render.ts's buildNode pointer handlers) - toggled
+   on/off directly (not `:active`, since the drag is tracked via pointer
+   capture rather than a simple held-mouse-button state, and needs to keep
+   reading as "grabbing" for the full gesture regardless of exactly which
+   button/pointer state is active). */
+.node.node-dragging {
+  cursor: grabbing;
+}
+
+/* The inner group render.ts wraps card content in (rect/badge/icon/text) -
+   carries the hover "gently lift" animation (soft scale-up + deepened
+   shadow) as a smooth CSS transition instead of the old instant stroke-
+   width/brightness jump-cut. `transform-box: fill-box` scales around the
+   card's own rendered bounds rather than the SVG document origin. */
+.node-card {
+  filter: url(#tf-node-shadow);
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition:
+    transform 160ms ease-out,
+    filter 160ms ease-out;
+}
+
+.node:hover .node-card,
+.node:focus-visible .node-card {
+  filter: url(#tf-node-shadow-hover) brightness(1.06);
+  transform: scale(1.02);
+}
+
+.node:hover .node-rect,
+.node:focus-visible .node-rect {
+  stroke-width: 2.25;
+}
+
+/* Subtle gradient fill (see the .node-gradient-* defs above) instead of a
+   flat single-color background, for a faint sense of material/depth - still
+   anchored to the real editor background so it stays legible in both light
+   and dark themes. */
+.node-rect {
+  fill: url(#tf-node-gradient-resource);
+  stroke: var(--tf-accent-primary);
+  stroke-width: 1.5;
+  transition: stroke-width 160ms ease-out;
+}
+
+/* ---- Typography hierarchy -----------------------------------------------
+   name = primary (bold, full editor-foreground contrast), type = secondary
+   (regular weight, softly muted), detail = tertiary (smallest, most muted,
+   italicized to read as "supplementary/meta" rather than identity). */
+
+.node-label {
+  fill: var(--vscode-editor-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  dominant-baseline: middle;
+}
+
+.node-type {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  opacity: 0.75;
+  dominant-baseline: middle;
+}
+
+/* Curated attribute "detail" line (nodeDetail.ts) - e.g. a virtual
+   network's address_space CIDR, a storage account's account_tier. Smaller,
+   italicized and more muted than .node-type, since it's supplementary
+   detail rather than the node's own identity. */
+.node-detail {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  font-style: italic;
+  opacity: 0.6;
+  dominant-baseline: middle;
+}
+
+/* Icon glyphs (icons.ts) draw with stroke="currentColor" and set no color
+   of their own - `color` here is what `currentColor` resolves against, so
+   each icon automatically follows the same accent already used for that
+   node kind's border (see the `.node-kind-*`/`.node-config` rules below,
+   which set the identical CSS variable on both `stroke` and `color`). */
+.node-icon {
+  display: block;
+  color: var(--tf-accent-primary);
+  position: relative;
+}
+
+/* Soft rounded-square badge drawn behind the icon glyph (render.ts) - a
+   low-opacity wash of the same accent color the icon/border already use,
+   giving every icon a "modern dashboard tile" presentation instead of a
+   bare stroke glyph floating on transparent background. */
+.node-icon-badge {
+  fill: var(--tf-accent-primary);
+  fill-opacity: 0.16;
+}
+
+/* resource/data: the "real infrastructure" nodes - solid border, strongest accent. */
+.node-kind-resource .node-rect {
+  fill: url(#tf-node-gradient-resource);
+  stroke: var(--tf-accent-primary);
+}
+
+.node-kind-resource .node-icon,
+.node-kind-resource .node-icon-badge {
+  color: var(--tf-accent-primary);
+}
+
+.node-kind-resource .node-icon-badge {
+  fill: var(--tf-accent-primary);
+}
+
+/* data sources: same accent family as resources, but dashed - per the
+   project's established convention of visually distinguishing data-source
+   lookups from managed resources. */
+.node-kind-data .node-rect {
+  fill: url(#tf-node-gradient-data);
+  stroke: var(--tf-accent-primary);
+  stroke-dasharray: 5 3;
+}
+
+.node-kind-data .node-icon,
+.node-kind-data .node-icon-badge {
+  color: var(--tf-accent-primary);
+}
+
+.node-kind-data .node-icon-badge {
+  fill: var(--tf-accent-primary);
+}
+
+/* module calls: distinct accent (a "container of other nodes" feel).
+
+   `filter: hue-rotate(...)` here (and the mirrored -48deg on
+   `.node-config`/`.node-chip` below) is deliberate, permanent, unconditional
+   insurance against the real scenario documented at the top of this file:
+   `--tf-accent-module` and `--tf-accent-config` can legitimately resolve to
+   the exact same underlying color as `--tf-accent-primary` or each other on
+   a theme that only bothers customizing one or two of the handful of tokens
+   those fallback chains check (confirmed happens with this repo's own two
+   real test themes). A modest hue shift keeps module/config nodes visually
+   distinguishable from resource/data (and from each other) even in that
+   collapse case, while staying subtle enough not to visibly disturb themes
+   where charts.blue/purple/orange - or another set of genuinely distinct
+   tokens - were already three clearly different hues to begin with (see
+   this file's dev-preview screenshots). Applied to the whole outer
+   `.node-kind-module` group (not just `.node-rect`) so it also rotates the
+   icon/badge, which already intentionally share the exact same accent
+   color - text stays effectively unaffected since it's a near-neutral gray
+   (hue-rotate has ~no visible effect at low saturation). */
+.node-kind-module {
+  filter: hue-rotate(48deg);
+}
+
+.node-kind-module .node-rect {
+  fill: url(#tf-node-gradient-module);
+  stroke: var(--tf-accent-module);
+  stroke-width: 2;
+}
+
+.node-kind-module .node-icon,
+.node-kind-module .node-icon-badge {
+  color: var(--tf-accent-module);
+}
+
+.node-kind-module .node-icon-badge {
+  fill: var(--tf-accent-module);
+}
+
+/* variable/output/locals: de-emphasized structural/config nodes - smaller,
+   muted, dashed, hidden by default via the toolbar toggle (see main.ts).
+   (Currently dead in practice - render.ts strips variable/output/locals
+   nodes out of the graph entirely before layout runs, per its own comment -
+   kept in sync anyway in case that changes again, and because the identical
+   accent + hue-rotate treatment is what `.node-chip` below deliberately
+   mirrors for the still-very-much-live variable-reference chips.) See the
+   `.node-kind-module` rule above for why the hue-rotate is here. */
+.node-config {
+  filter: hue-rotate(-48deg);
+}
+
+.node-config .node-rect {
+  fill: url(#tf-node-gradient-config);
+  stroke: var(--tf-accent-config);
+  stroke-dasharray: 3 3;
+  opacity: 0.85;
+}
+
+.node-config .node-icon,
+.node-config .node-icon-badge {
+  color: var(--tf-accent-config);
+}
+
+.node-config .node-icon-badge {
+  fill: var(--tf-accent-config);
+}
+
+.node-config .node-icon {
+  opacity: 0.85;
+}
+
+.node-config .node-icon-badge {
+  fill-opacity: 0.14;
+}
+
+.node-config .node-label {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---- Variable-reference chips (render.ts's buildChipRows) --------------
+   Rendered on a resource/data card when the "show variables, outputs &
+   locals" toggle is on and that node's own attributes directly reference at
+   least one variable (see graphModel.ts's GraphNode.referencedVariables).
+   Deliberately reuses the exact same muted accent-orange "this is config,
+   not infrastructure" visual language the old .node-config full-node
+   treatment above used - only the shape changed (a full dashed graph box ->
+   a small pill attached to the card that references it), not the color
+   language itself. Also carries the same `hue-rotate(-48deg)` insurance as
+   `.node-config` above (see the `.node-kind-module` rule's comment) - a
+   chip always sits *inside* a resource/data card, so it can't rely on a
+   `.node-config` ancestor class the way a full config node would; applied
+   directly to `.node-chip` instead. */
+.node-chip {
+  filter: hue-rotate(-48deg);
+}
+
+.node-chip-rect {
+  fill: var(--tf-accent-config);
+  fill-opacity: 0.14;
+  stroke: var(--tf-accent-config);
+  stroke-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.node-chip-label {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  font-weight: 500;
+  dominant-baseline: middle;
+}

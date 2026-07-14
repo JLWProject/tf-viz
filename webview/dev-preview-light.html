@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+  Dev-only preview harness - NOT shipped with the extension, NOT part of any
+  build target. Light-theme counterpart of dev-preview.html: identical
+  GRAPH_MODEL and identical stubbed acquireVsCodeApi(), the only difference
+  is the faked --vscode-* :root tokens below, picked to roughly resemble VS
+  Code's default Light+ theme instead of Dark+ - exists specifically to
+  confirm the "2026 sexy" redesign (drop shadows, gradient node fills, icon
+  badges, module cluster panels) still looks correct/legible on a light
+  background, not just a dark one, since real stakeholders may be on either.
+
+  Open this file directly in a browser (file:// is fine).
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>tf-graph-visualizer webview dev preview (light)</title>
+    <link rel="stylesheet" href="dist/webview.css" />
+    <style>
+      /* Fake VS Code webview theme tokens - a plain browser has none of
+         these by default, only a real VS Code webview injects them. Picked
+         to roughly resemble VS Code's default Light+ theme so the harness is
+         legible; NOT meant to be an accurate theme reproduction. */
+      :root {
+        --vscode-editor-background: #ffffff;
+        --vscode-editor-foreground: #3b3b3b;
+        --vscode-panel-border: #d4d4d4;
+        --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --vscode-font-size: 13px;
+        --vscode-editor-font-family: Menlo, Consolas, monospace;
+        --vscode-textLink-foreground: #006ab1;
+        --vscode-descriptionForeground: #717171;
+        --vscode-input-background: #ffffff;
+        --vscode-input-foreground: #3b3b3b;
+        --vscode-input-border: #cecece;
+        --vscode-input-placeholderForeground: #767676;
+        --vscode-focusBorder: #0090f1;
+        --vscode-checkbox-background: #ffffff;
+        --vscode-checkbox-border: #919191;
+        --vscode-button-background: #005fb8;
+        --vscode-button-foreground: #ffffff;
+        --vscode-button-hoverBackground: #0258a8;
+        --vscode-button-secondaryBackground: #e5e5e5;
+        --vscode-button-secondaryForeground: #3b3b3b;
+        --vscode-button-secondaryHoverBackground: #d0d0d0;
+        --vscode-editor-inactiveSelectionBackground: #e5ebf1;
+        --vscode-editorLineNumber-foreground: #237893;
+        --vscode-editorWidget-background: #f8f8f8;
+        --vscode-widget-shadow: rgba(0, 0, 0, 0.16);
+        --vscode-charts-blue: #1a85ff;
+        --vscode-charts-green: #388a34;
+        --vscode-charts-orange: #d18616;
+        --vscode-charts-purple: #652d90;
+        --vscode-charts-red: #cc0000;
+        --vscode-errorForeground: #cc0000;
+      }
+    </style>
+    <script>
+      // Stub of the ambient global every webview gets exactly once from VS
+      // Code - here it just logs everything instead of bridging to a real
+      // extension host.
+      window.acquireVsCodeApi = function () {
+        return {
+          postMessage(message) {
+            console.log('[dev-preview] postMessage from webview:', message);
+          },
+          getState() {
+            return undefined;
+          },
+          setState() {
+            /* no-op */
+          },
+        };
+      };
+    </script>
+  </head>
+  <body>
+    <script src="dist/webview.js"></script>
+    <script>
+      // Same real captured GraphModel as dev-preview.html (see that file's
+      // comment for provenance) - kept identical between the two harnesses
+      // so the only variable between the two screenshots is the theme.
+      var GRAPH_MODEL = {"nodes":[{"address":"var.vnet_address_space","type":"","name":"vnet_address_space","module":"root","kind":"variable","attributes":{"description":"The CIDR range for the virtual network.","default":"10.0.0.0/16"},"referencedVariables":[]},{"address":"var.admin_password","type":"","name":"admin_password","module":"root","kind":"variable","attributes":{"description":"Local admin password for the VM.","sensitive":"true","default":"super-secret-default"},"referencedVariables":[]},{"address":"var.environment","type":"","name":"environment","module":"root","kind":"variable","attributes":{"description":"Deployment environment name.","default":"production"},"referencedVariables":[]},{"address":"output.vm_id","type":"","name":"vm_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the provisioned virtual machine."},"referencedVariables":[]},{"address":"output.vnet_id","type":"","name":"vnet_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the virtual network."},"referencedVariables":[]},{"address":"local.environment_tag","type":"","name":"environment_tag","module":"root","kind":"locals","attributes":{"environment_tag":"production"},"referencedVariables":[]},{"address":"azurerm_resource_group.rg","type":"azurerm_resource_group","name":"rg","module":"root","kind":"resource","attributes":{"name":"rg-example","location":"uksouth"},"referencedVariables":[]},{"address":"azurerm_virtual_network.vnet","type":"azurerm_virtual_network","name":"vnet","module":"root","kind":"resource","attributes":{"name":"vnet-example"},"referencedVariables":["var.vnet_address_space"]},{"address":"azurerm_subnet.subnet","type":"azurerm_subnet","name":"subnet","module":"root","kind":"resource","attributes":{"name":"subnet-example","address_prefixes":"10.0.1.0/24"},"referencedVariables":[]},{"address":"azurerm_linux_virtual_machine.vm","type":"azurerm_linux_virtual_machine","name":"vm","module":"root","kind":"resource","attributes":{"name":"vm-example","size":"Standard_D2s_v3","admin_username":"adminuser"},"referencedVariables":["var.admin_password","var.environment"]}],"edges":[{"from":"output.vm_id","to":"azurerm_linux_virtual_machine.vm"},{"from":"output.vnet_id","to":"azurerm_virtual_network.vnet"},{"from":"azurerm_virtual_network.vnet","to":"azurerm_resource_group.rg"},{"from":"azurerm_subnet.subnet","to":"azurerm_resource_group.rg"},{"from":"azurerm_subnet.subnet","to":"azurerm_virtual_network.vnet"},{"from":"azurerm_linux_virtual_machine.vm","to":"azurerm_resource_group.rg"},{"from":"azurerm_linux_virtual_machine.vm","to":"azurerm_subnet.subnet"}],"addressLocations":{"var.vnet_address_space":{"file":"main.tf","line":1},"var.admin_password":{"file":"main.tf","line":6},"var.environment":{"file":"main.tf","line":12},"output.vm_id":{"file":"main.tf","line":17},"output.vnet_id":{"file":"main.tf","line":22},"local.environment_tag":{"file":"main.tf","line":28},"azurerm_resource_group.rg":{"file":"main.tf","line":31},"azurerm_virtual_network.vnet":{"file":"main.tf","line":36},"azurerm_subnet.subnet":{"file":"main.tf","line":43},"azurerm_linux_virtual_machine.vm":{"file":"main.tf","line":50}}};
+
+      window.postMessage({ type: 'graph', payload: GRAPH_MODEL }, '*');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<!--
+  Dev-only preview harness - NOT shipped with the extension, NOT part of any
+  build target. Loads the real webview bundle (webview/dist/webview.js +
+  webview/dist/webview.css) directly in a plain browser, with no VS Code
+  involved at all:
+    - `acquireVsCodeApi()` is stubbed below to just log postMessage calls to
+      the console instead of talking to a real extension host.
+    - A handful of --vscode-* CSS custom properties are faked on :root with
+      plausible DARK-theme values purely so the graph is visually legible
+      when opened outside VS Code - real VS Code webviews set the real
+      values automatically, this harness has no other way to get them. See
+      dev-preview-light.html for the light-theme counterpart of this same
+      harness (same GRAPH_MODEL, different faked :root tokens) - both exist
+      so the redesign's shadow/gradient/badge treatment can be checked for
+      legibility in both real VS Code theme families, not just one.
+    - The embedded GRAPH_MODEL below is REAL captured output: an ad hoc
+      `azurerm_resource_group` -> `azurerm_virtual_network` -> `azurerm_subnet`
+      -> `azurerm_linux_virtual_machine` resource chain, where the virtual
+      network directly references one plain `variable` (`vnet_address_space`,
+      a plain `default`) and the VM directly references two more - a
+      `sensitive = true` `variable` (`admin_password`, whose `default`
+      pickNodeDetail must withhold - see nodeDetail.ts - falling back to its
+      `description` instead) and a third plain `variable` (`environment`) -
+      exercising the new resource/data-card variable-reference chips (see
+      render.ts's buildChipRows). Also included: two `output` blocks (one
+      with only a `description`, since its `value` is a reference chain not
+      a literal) and one `locals` block with an extractable literal value,
+      for the new separate Outputs/Locals side panel (main.ts's
+      renderInfoPanel). All run through the actual `tf-hcl-graph` Go binary
+      and then the actual `buildGraphModel()` TS function, not hand-written
+      fake JSON.
+
+  Open this file directly in a browser (file:// is fine) to click around:
+  pan/zoom, the search box, the "show variables, outputs & locals" toggle
+  (chips on the vnet/vm cards + the Outputs/Locals side panel), "Fit to
+  view", and clicking a node/output/local row (watch the console for the
+  resulting `navigate` postMessage call).
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>tf-graph-visualizer webview dev preview (dark)</title>
+    <link rel="stylesheet" href="dist/webview.css" />
+    <style>
+      /* Fake VS Code webview theme tokens - a plain browser has none of
+         these by default, only a real VS Code webview injects them. Picked
+         to roughly resemble VS Code's default Dark+ theme so the harness is
+         legible; NOT meant to be an accurate theme reproduction. */
+      :root {
+        --vscode-editor-background: #1e1e1e;
+        --vscode-editor-foreground: #cccccc;
+        --vscode-panel-border: #80808059;
+        --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --vscode-font-size: 13px;
+        --vscode-editor-font-family: Menlo, Consolas, monospace;
+        --vscode-textLink-foreground: #3794ff;
+        --vscode-descriptionForeground: #9d9d9d;
+        --vscode-input-background: #3c3c3c;
+        --vscode-input-foreground: #cccccc;
+        --vscode-input-border: #3c3c3c;
+        --vscode-input-placeholderForeground: #a6a6a6;
+        --vscode-focusBorder: #007fd4;
+        --vscode-checkbox-background: #3c3c3c;
+        --vscode-checkbox-border: #3c3c3c;
+        --vscode-button-background: #0e639c;
+        --vscode-button-foreground: #ffffff;
+        --vscode-button-hoverBackground: #1177bb;
+        --vscode-button-secondaryBackground: #3a3d41;
+        --vscode-button-secondaryForeground: #ffffff;
+        --vscode-button-secondaryHoverBackground: #45494e;
+        --vscode-editor-inactiveSelectionBackground: #3a3d4166;
+        --vscode-editorLineNumber-foreground: #858585;
+        --vscode-editorWidget-background: #252526;
+        --vscode-widget-shadow: rgba(0, 0, 0, 0.55);
+        --vscode-charts-blue: #3794ff;
+        --vscode-charts-green: #89d185;
+        --vscode-charts-orange: #d18616;
+        --vscode-charts-purple: #b180d7;
+        --vscode-charts-red: #f14c4c;
+        --vscode-errorForeground: #f14c4c;
+      }
+    </style>
+    <script>
+      // Stub of the ambient global every webview gets exactly once from VS
+      // Code - here it just logs everything instead of bridging to a real
+      // extension host.
+      window.acquireVsCodeApi = function () {
+        return {
+          postMessage(message) {
+            console.log('[dev-preview] postMessage from webview:', message);
+          },
+          getState() {
+            return undefined;
+          },
+          setState() {
+            /* no-op */
+          },
+        };
+      };
+    </script>
+  </head>
+  <body>
+    <script src="dist/webview.js"></script>
+    <script>
+      // Real captured GraphModel: an ad hoc resource_group -> virtual_network
+      // -> subnet -> linux_virtual_machine chain, where the virtual_network
+      // and virtual_machine resources each carry a non-empty
+      // `referencedVariables` (three variables total - one plain, one
+      // sensitive, one plain - across the two of them), plus two outputs and
+      // one locals block, run through the actual tf-hcl-graph Go binary and
+      // the actual buildGraphModel() TS function. By the time this script
+      // tag runs, webview.js's top-level code (including its
+      // `window.addEventListener('message', ...)` call) has already
+      // finished executing - classic <script> tags run synchronously in
+      // document order - so posting here is safe and will always be
+      // handled, no race with main.ts's own `ready` postMessage.
+      var GRAPH_MODEL = {"nodes":[{"address":"var.vnet_address_space","type":"","name":"vnet_address_space","module":"root","kind":"variable","attributes":{"description":"The CIDR range for the virtual network.","default":"10.0.0.0/16"},"referencedVariables":[]},{"address":"var.admin_password","type":"","name":"admin_password","module":"root","kind":"variable","attributes":{"description":"Local admin password for the VM.","sensitive":"true","default":"super-secret-default"},"referencedVariables":[]},{"address":"var.environment","type":"","name":"environment","module":"root","kind":"variable","attributes":{"description":"Deployment environment name.","default":"production"},"referencedVariables":[]},{"address":"output.vm_id","type":"","name":"vm_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the provisioned virtual machine."},"referencedVariables":[]},{"address":"output.vnet_id","type":"","name":"vnet_id","module":"root","kind":"output","attributes":{"description":"The resource ID of the virtual network."},"referencedVariables":[]},{"address":"local.environment_tag","type":"","name":"environment_tag","module":"root","kind":"locals","attributes":{"environment_tag":"production"},"referencedVariables":[]},{"address":"azurerm_resource_group.rg","type":"azurerm_resource_group","name":"rg","module":"root","kind":"resource","attributes":{"name":"rg-example","location":"uksouth"},"referencedVariables":[]},{"address":"azurerm_virtual_network.vnet","type":"azurerm_virtual_network","name":"vnet","module":"root","kind":"resource","attributes":{"name":"vnet-example"},"referencedVariables":["var.vnet_address_space"]},{"address":"azurerm_subnet.subnet","type":"azurerm_subnet","name":"subnet","module":"root","kind":"resource","attributes":{"name":"subnet-example","address_prefixes":"10.0.1.0/24"},"referencedVariables":[]},{"address":"azurerm_linux_virtual_machine.vm","type":"azurerm_linux_virtual_machine","name":"vm","module":"root","kind":"resource","attributes":{"name":"vm-example","size":"Standard_D2s_v3","admin_username":"adminuser"},"referencedVariables":["var.admin_password","var.environment"]}],"edges":[{"from":"output.vm_id","to":"azurerm_linux_virtual_machine.vm"},{"from":"output.vnet_id","to":"azurerm_virtual_network.vnet"},{"from":"azurerm_virtual_network.vnet","to":"azurerm_resource_group.rg"},{"from":"azurerm_subnet.subnet","to":"azurerm_resource_group.rg"},{"from":"azurerm_subnet.subnet","to":"azurerm_virtual_network.vnet"},{"from":"azurerm_linux_virtual_machine.vm","to":"azurerm_resource_group.rg"},{"from":"azurerm_linux_virtual_machine.vm","to":"azurerm_subnet.subnet"}],"addressLocations":{"var.vnet_address_space":{"file":"main.tf","line":1},"var.admin_password":{"file":"main.tf","line":6},"var.environment":{"file":"main.tf","line":12},"output.vm_id":{"file":"main.tf","line":17},"output.vnet_id":{"file":"main.tf","line":22},"local.environment_tag":{"file":"main.tf","line":28},"azurerm_resource_group.rg":{"file":"main.tf","line":31},"azurerm_virtual_network.vnet":{"file":"main.tf","line":36},"azurerm_subnet.subnet":{"file":"main.tf","line":43},"azurerm_linux_virtual_machine.vm":{"file":"main.tf","line":50}}};
+
+      window.postMessage({ type: 'graph', payload: GRAPH_MODEL }, '*');
+
+      // Uncomment to instead exercise the error-state path:
+      // window.postMessage({ type: 'error', message: 'tf-hcl-graph failed: no .tf files found in directory' }, '*');
+    </script>
+  </body>
+</html>

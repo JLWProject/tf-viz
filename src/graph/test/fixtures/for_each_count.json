@@ -1,0 +1,226 @@
+{
+  "errors": [],
+  "modules": [
+    {
+      "prefix": "",
+      "directory": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count",
+      "expanded": true,
+      "blocks": [
+        {
+          "kind": "resource",
+          "type": "azurerm_resource_group",
+          "name": "rg",
+          "address": "azurerm_resource_group.rg",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+            "startLine": 1,
+            "startColumn": 1,
+            "endLine": 4,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 2,
+                "startColumn": 3,
+                "endLine": 2,
+                "endColumn": 26
+              },
+              "references": [],
+              "value": "rg-example"
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 3,
+                "startColumn": 3,
+                "endLine": 3,
+                "endColumn": 26
+              },
+              "references": [],
+              "value": "westeurope"
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "type": "azurerm_storage_account",
+          "name": "each_example",
+          "address": "azurerm_storage_account.each_example",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+            "startLine": 6,
+            "startColumn": 1,
+            "endLine": 12,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "for_each",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 7,
+                "startColumn": 3,
+                "endLine": 7,
+                "endColumn": 34
+              },
+              "references": []
+            },
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 9,
+                "startColumn": 3,
+                "endLine": 9,
+                "endColumn": 40
+              },
+              "references": [
+                {
+                  "expression": "each.key",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                    "startLine": 9,
+                    "startColumn": 30,
+                    "endLine": 9,
+                    "endColumn": 38
+                  }
+                }
+              ]
+            },
+            {
+              "name": "resource_group_name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 10,
+                "startColumn": 3,
+                "endLine": 10,
+                "endColumn": 55
+              },
+              "references": [
+                {
+                  "expression": "azurerm_resource_group.rg.name",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                    "startLine": 10,
+                    "startColumn": 25,
+                    "endLine": 10,
+                    "endColumn": 55
+                  }
+                }
+              ]
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 11,
+                "startColumn": 3,
+                "endLine": 11,
+                "endColumn": 35
+              },
+              "references": [
+                {
+                  "expression": "each.value",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                    "startLine": 11,
+                    "startColumn": 25,
+                    "endLine": 11,
+                    "endColumn": 35
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "type": "azurerm_storage_account",
+          "name": "count_example",
+          "address": "azurerm_storage_account.count_example",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+            "startLine": 14,
+            "startColumn": 1,
+            "endLine": 20,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "count",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 15,
+                "startColumn": 3,
+                "endLine": 15,
+                "endColumn": 12
+              },
+              "references": [],
+              "value": "2"
+            },
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 17,
+                "startColumn": 3,
+                "endLine": 17,
+                "endColumn": 48
+              },
+              "references": [
+                {
+                  "expression": "count.index",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                    "startLine": 17,
+                    "startColumn": 35,
+                    "endLine": 17,
+                    "endColumn": 46
+                  }
+                }
+              ]
+            },
+            {
+              "name": "resource_group_name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 18,
+                "startColumn": 3,
+                "endLine": 18,
+                "endColumn": 55
+              },
+              "references": [
+                {
+                  "expression": "azurerm_resource_group.rg.name",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                    "startLine": 18,
+                    "startColumn": 25,
+                    "endLine": 18,
+                    "endColumn": 55
+                  }
+                }
+              ]
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/misc/tf-graph-visualizer/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
+                "startLine": 19,
+                "startColumn": 3,
+                "endLine": 19,
+                "endColumn": 37
+              },
+              "references": [],
+              "value": "westeurope"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

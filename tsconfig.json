@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node", "mocha"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "declaration": false,
+    "outDir": "out",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  // webview/ is its own program (browser lib/DOM, no node/mocha types) -
+  // see webview/tsconfig.json - keep it out of this Node-context config.
+  "exclude": ["node_modules", "dist", "out", "webview"]
+}

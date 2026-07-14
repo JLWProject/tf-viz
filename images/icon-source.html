@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--
+  Source harness for images/icon.png - NOT shipped with the extension.
+  Renders the 128x128 Marketplace icon as inline SVG so Playwright can
+  screenshot it at exact pixel size (no ImageMagick/rsvg-convert available
+  in this environment). Regenerate after editing: screenshot the #icon
+  element at a 128x128 viewport, deviceScaleFactor 1.
+
+  Design: a small top-down dependency chain (three circle nodes, curved
+  connectors) on a rounded-square indigo/violet gradient - deliberately
+  echoes the graph webview's own node-and-curved-edge visual language
+  (see webview/src/render.ts, webview/src/theme.css) rather than any
+  official Terraform/HashiCorp mark, so there's no trademark concern.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <svg id="icon" width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#6d5ef0" />
+          <stop offset="1" stop-color="#3a2e8f" />
+        </linearGradient>
+        <linearGradient id="edgeGrad" x1="0" y1="0" x2="0" y2="128" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#e6e1ff" />
+          <stop offset="1" stop-color="#b9adf7" />
+        </linearGradient>
+        <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1c1450" flood-opacity="0.45" />
+        </filter>
+      </defs>
+
+      <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)" />
+      <rect x="4.5" y="4.5" width="119" height="119" rx="25.5" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+
+      <!-- curved connectors, drawn first so nodes sit on top -->
+      <g fill="none" stroke="url(#edgeGrad)" stroke-width="4" stroke-linecap="round">
+        <path d="M 64 40 C 64 54, 40 54, 40 68" />
+        <path d="M 64 40 C 64 54, 88 54, 88 68" />
+        <path d="M 40 68 C 40 82, 64 82, 64 96" />
+        <path d="M 88 68 C 88 82, 64 82, 64 96" />
+      </g>
+
+      <!-- three nodes: one source at top, two mid, one sink at bottom -->
+      <g filter="url(#softShadow)">
+        <circle cx="64" cy="32" r="12" fill="#ffffff" />
+        <circle cx="36" cy="68" r="10" fill="#ffffff" fill-opacity="0.96" />
+        <circle cx="92" cy="68" r="10" fill="#ffffff" fill-opacity="0.96" />
+        <circle cx="64" cy="100" r="12" fill="#ffffff" />
+      </g>
+
+      <g fill="#4b3fc4">
+        <circle cx="64" cy="32" r="4.5" />
+        <circle cx="36" cy="68" r="3.6" />
+        <circle cx="92" cy="68" r="3.6" />
+        <circle cx="64" cy="100" r="4.5" />
+      </g>
+    </svg>
+  </body>
+</html>

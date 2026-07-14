@@ -1,0 +1,16 @@
+{
+  // Separate emit-focused config just for the @vscode/test-electron
+  // integration suite (src/test/runTest.ts + src/test/suite/**) - the main
+  // tsconfig.json is typecheck-only (`tsc --noEmit`, see package.json's
+  // `typecheck` script) and deliberately excludes `out/`. `@vscode/test-
+  // electron` launches a real `code` process whose extension host requires
+  // `extensionTestsPath` as a plain compiled Node module, so these files
+  // need real JS on disk - ts-node-in-process (used for the plain Mocha
+  // unit tests, see .mocharc.json) doesn't run inside that separate process.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "out",
+    "rootDir": "src"
+  },
+  "include": ["src/test/runTest.ts", "src/test/suite/**/*.ts"]
+}

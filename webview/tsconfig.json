@@ -1,0 +1,41 @@
+{
+  // Separate from the root tsconfig.json on purpose: the webview runs in a
+  // sandboxed browser context (DOM APIs, no Node globals), while the root
+  // config targets the Node-context extension host (`lib: ["ES2022"]` only,
+  // `types: ["node", "mocha"]`) - a single shared tsconfig would force a
+  // choice between DOM types leaking into extension-host code or Node types
+  // leaking into webview code, either of which is wrong. This is the
+  // standard two-tsconfig split for VS Code extension + webview projects.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    // "mocha" only (not "node"): webview/src/test/*.test.ts files need the
+    // ambient describe/it/before* globals mocha's own @types package
+    // provides - same pattern the root tsconfig.json already uses for its
+    // own colocated *.test.ts files. Deliberately NOT adding "node" here:
+    // that would leak Node ambient globals (process, Buffer, require, ...)
+    // into every browser-context webview production file's type-checking,
+    // which could mask a real bug (webview code accidentally referencing a
+    // Node-only global that doesn't exist at runtime). Test files that need
+    // Node builtins import them explicitly (e.g. `import * as assert from
+    // 'node:assert/strict'`), which resolves via @types/node's module
+    // declarations regardless of this array - that's unrelated to the
+    // ambient-global allowlist this option controls.
+    "types": ["mocha"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true
+  },
+  // Only webview/src files are "root" files - src/graph/*.ts still gets
+  // type-checked because layout.ts imports its types, tsc follows that
+  // automatically without needing it listed here too.
+  "include": ["src/**/*.ts"]
+}
