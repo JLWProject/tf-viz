@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+webview/dist/
+*.vsix
+.DS_Store
+.vscode-test.gitignore
