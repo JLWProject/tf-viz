@@ -4,4 +4,19 @@ out/
 webview/dist/
 *.vsix
 .DS_Store
-.vscode-test.gitignore
+.vscode-test/
+
+# Secrets / credentials - never commit these, especially now this repo is public
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+.npmrc
+credentials.json
+credentials.yml
+*.pat
