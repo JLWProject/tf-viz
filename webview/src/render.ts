@@ -545,30 +545,33 @@ function buildNode(
   const nameBlockHeight = node.nameLines.length * NAME_LINE_HEIGHT;
   const typeBlockHeight = showSubtitle ? NAME_TYPE_GAP + node.typeLines.length * TYPE_LINE_HEIGHT : 0;
   const detailBlockHeight = hasDetail ? TYPE_DETAIL_GAP + node.detailLines.length * DETAIL_LINE_HEIGHT : 0;
-  const chipBlockHeight = hasChips
-    ? CHIP_BLOCK_GAP +
-      node.chipRows.reduce((sum, row) => sum + Math.max(...row.map((chip) => chip.height)), 0) +
-      (node.chipRows.length - 1) * CHIP_GAP_Y
-    : 0;
-  // The text/chip block centers within the space *below* the reserved top
-  // strip (CONTENT_TOP_RESERVE - the corner icon badge's own footprint plus
-  // breathing room), not the full card height - see layout.ts's
-  // `estimateNodeSize()`, which sized `node.height` with that same reserved
-  // strip added on top of these block heights, specifically so this can
-  // never visually collide with the badge even on the shortest (e.g. bare
-  // `module` name-only) card.
-  const blockTop =
-    CONTENT_TOP_RESERVE +
-    (node.height - CONTENT_TOP_RESERVE - nameBlockHeight - typeBlockHeight - detailBlockHeight - chipBlockHeight) / 2;
+
+  // Built at a nominal position (packed right after the icon reserve, no
+  // centering math here) inside its own `.node-content` group - this group
+  // gets nudged to its *real* centered position in a second pass, once the
+  // whole SVG tree is actually attached to the live document (see
+  // renderGraph()'s post-append centering pass below). Doing the size-driven
+  // math here instead (against nameBlockHeight/typeBlockHeight/etc.'s
+  // estimates) used to assume those estimates always exactly matched
+  // layout.ts's own `node.height` calculation - true in the common case, but
+  // real-world content (long wrapped detail lines, chip rows measured against
+  // a live theme's actual font metrics rather than textMeasure.ts's Node-only
+  // fallback) could drift enough from the estimate to visibly bias the block
+  // toward the bottom of the card instead of the middle. Measuring the real
+  // rendered `getBBox()` after attachment sidesteps that drift entirely.
+  const blockTop = CONTENT_TOP_RESERVE;
+
+  const content = svgEl('g', { class: 'node-content' });
+  card.appendChild(content);
 
   const nameStartY = blockTop + NAME_LINE_HEIGHT / 2;
   const nameText = buildMultilineText(node.nameLines, textCenterX, nameStartY, NAME_LINE_HEIGHT, 'node-label');
-  card.appendChild(nameText);
+  content.appendChild(nameText);
 
   if (showSubtitle) {
     const typeStartY = blockTop + nameBlockHeight + NAME_TYPE_GAP + TYPE_LINE_HEIGHT / 2;
     const typeText = buildMultilineText(node.typeLines, textCenterX, typeStartY, TYPE_LINE_HEIGHT, 'node-type');
-    card.appendChild(typeText);
+    content.appendChild(typeText);
   }
 
   if (hasDetail) {
@@ -580,12 +583,12 @@ function buildNode(
       DETAIL_LINE_HEIGHT,
       'node-detail'
     );
-    card.appendChild(detailText);
+    content.appendChild(detailText);
   }
 
   if (hasChips) {
     const chipsTop = blockTop + nameBlockHeight + typeBlockHeight + detailBlockHeight + CHIP_BLOCK_GAP;
-    card.appendChild(buildChipRows(node.chipRows, textCenterX, chipsTop));
+    content.appendChild(buildChipRows(node.chipRows, textCenterX, chipsTop));
   }
 
   // ---- Whole-card dragging (manual position override) --------------------
@@ -736,4 +739,41 @@ export function renderGraph(
 
   svg.appendChild(viewport);
   container.appendChild(svg);
+
+  centerNodeContent(nodesGroup);
+}
+
+/**
+ * Nudges each node's `.node-content` group (name/type/detail/chips - see
+ * buildNode()) so it's truly vertically centered in the card's full height,
+ * measured against its *real* rendered `getBBox()` rather than the
+ * size-estimate math layout.ts used to pre-size the card. Must run after
+ * `container.appendChild(svg)` above - `getBBox()` on a detached SVG tree
+ * can't resolve the CSS-driven font metrics (.node-label/.node-type/etc.'s
+ * font-size) that determine each text line's actual rendered extent, so
+ * measuring any earlier would just re-introduce the same estimate-vs-reality
+ * drift this pass exists to eliminate.
+ */
+function centerNodeContent(nodesGroup: SVGGElement): void {
+  for (const nodeGroup of Array.from(nodesGroup.children)) {
+    const content = nodeGroup.querySelector('.node-content');
+    const rect = nodeGroup.querySelector('.node-rect');
+    if (!(content instanceof SVGGElement) || !(rect instanceof SVGRectElement)) {
+      continue;
+    }
+
+    const cardHeight = rect.height.baseVal.value;
+    const bbox = content.getBBox();
+    const idealTop = (cardHeight - bbox.height) / 2;
+    // Never let centering pull content up into the icon badge's reserved
+    // corner - see buildNode()'s CONTENT_TOP_RESERVE comment. Only matters
+    // for the shortest (e.g. bare `module` name-only) cards, where the ideal
+    // full-height center would otherwise land above that reserved strip.
+    const clampedTop = Math.max(CONTENT_TOP_RESERVE, idealTop);
+    const delta = clampedTop - bbox.y;
+
+    if (Math.abs(delta) > 0.5) {
+      content.setAttribute('transform', `translate(0, ${delta})`);
+    }
+  }
 }

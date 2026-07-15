@@ -11,19 +11,26 @@ import (
 // literalAttributeValue extracts a best-effort human-readable string
 // representation of an attribute expression's value, generalizing
 // literalStringValue (see modules.go) beyond plain strings. Tries the same
-// fast general path first - Expression.Value(nil) succeeds for any
-// expression that needs no variables or functions, true of any bare literal
-// - falling back to the same single-part-template-wrapping-a-literal shape
-// Value(nil) sometimes chokes on for a bare quoted string.
+// fast general path first - Expression.Value(ctx) succeeds for any
+// expression that needs no variables/functions beyond whatever ctx supplies,
+// true of any bare literal when ctx is nil - falling back to the same
+// single-part-template-wrapping-a-literal shape Value(nil) sometimes chokes
+// on for a bare quoted string.
+//
+// ctx is nil for an ordinary (non-expanded) block; for a for_each/count
+// instance block (see instances.go) it binds each.key/each.value or
+// count.index to that specific instance's own value, so e.g.
+// `name = "st${each.key}"` resolves to a real per-instance literal ("sta")
+// instead of failing to evaluate at all.
 //
 // Handles the shapes common to Terraform attributes worth surfacing as
 // node detail: strings, numbers, bools, and lists/tuples/sets of strings
 // (the common shape for CIDR/IP-space attributes like address_space /
 // address_prefixes). Anything else - objects, maps, unknown/computed
-// values, or expressions that need variables/functions - is not
-// extractable and returns ("", false).
-func literalAttributeValue(expr hcl.Expression) (string, bool) {
-	v, diags := expr.Value(nil)
+// values, or expressions that need variables/functions ctx doesn't supply -
+// is not extractable and returns ("", false).
+func literalAttributeValue(expr hcl.Expression, ctx *hcl.EvalContext) (string, bool) {
+	v, diags := expr.Value(ctx)
 	if diags.HasErrors() {
 		// Fallback: mirror literalStringValue's single-part template shape,
 		// i.e. a bare quoted string like `account_tier = "Standard"`.

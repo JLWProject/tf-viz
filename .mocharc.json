@@ -1,0 +1,7 @@
+{
+  "require": "ts-node/register/transpile-only",
+  "extension": ["ts"],
+  "spec": ["src/**/*.test.ts", "webview/src/**/*.test.ts"],
+  "ignore": ["src/test/suite/**/*.ts"],
+  "timeout": 10000
+}

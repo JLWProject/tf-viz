@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 )
 
@@ -54,7 +55,7 @@ func parseModuleRecursive(dir string, prefix string, callChain string, mr *modul
 	}
 
 	var blocks []Block
-	var moduleCalls []*hclsyntax.Block // top-level "module" blocks, for the recursion pass below
+	var moduleCalls []moduleCallInstance // one per module-call *instance*, for the recursion pass below
 
 	for _, path := range files {
 		body, diags, err := parseFile(path)
@@ -70,12 +71,13 @@ func parseModuleRecursive(dir string, prefix string, callChain string, mr *modul
 		for _, b := range body.Blocks {
 			switch b.Type {
 			case "resource":
-				blocks = append(blocks, buildResourceLikeBlock(b, "resource"))
+				blocks = append(blocks, buildResourceLikeBlock(b, "resource")...)
 			case "data":
-				blocks = append(blocks, buildResourceLikeBlock(b, "data"))
+				blocks = append(blocks, buildResourceLikeBlock(b, "data")...)
 			case "module":
-				blocks = append(blocks, buildModuleBlock(b))
-				moduleCalls = append(moduleCalls, b)
+				moduleBlocks, callInstances := buildModuleBlocks(b)
+				blocks = append(blocks, moduleBlocks...)
+				moduleCalls = append(moduleCalls, callInstances...)
 			case "output":
 				blocks = append(blocks, buildNamedBlock(b, "output", "output."))
 			case "variable":
@@ -96,12 +98,18 @@ func parseModuleRecursive(dir string, prefix string, callChain string, mr *modul
 	visiting[dir] = true
 	defer delete(visiting, dir)
 
-	for _, mc := range moduleCalls {
+	for _, mci := range moduleCalls {
+		mc := mci.block
 		if len(mc.Labels) < 1 {
 			continue
 		}
 		name := mc.Labels[0]
-		childPrefix := prefix + "module." + name + "."
+		// callChain (used only for the modules.json registry/git lookup
+		// below) deliberately excludes the instance suffix - Terraform's own
+		// modules.json keys a call by its declaration, not per-instance, since
+		// every instance of the same for_each/count module call shares the
+		// same resolved source.
+		childPrefix := prefix + "module." + name + mci.suffix + "."
 		childCallChain := name
 		if callChain != "" {
 			childCallChain = callChain + "." + name
@@ -119,7 +127,12 @@ func parseModuleRecursive(dir string, prefix string, callChain string, mr *modul
 		}
 		if visiting[childDir] {
 			// Cycle guard - a module graph referencing itself (directly or
-			// via a longer chain) would otherwise recurse forever.
+			// via a longer chain) would otherwise recurse forever. Distinct
+			// for_each/count instances of the *same* call intentionally
+			// re-enter the same childDir in separate, sequential top-level
+			// calls below (each one's `visiting` entry is cleared via defer
+			// before the next instance starts), so this never misfires
+			// between sibling instances - only a genuine self-reference.
 			allErrors = append(allErrors, ParseError{
 				File:    dir,
 				Line:    mc.TypeRange.Start.Line,
@@ -152,7 +165,20 @@ func resolveModuleDir(currentDir string, moduleBody *hclsyntax.Body, callChain s
 	return "", false
 }
 
-func buildResourceLikeBlock(b *hclsyntax.Block, kind string) Block {
+// buildResourceLikeBlock builds one Block per instance a resource/data block
+// actually creates. Ordinarily (no for_each/count) that's a single Block at
+// the plain `type.name` address, same as ever. When for_each/count is
+// present *and* statically resolvable (see resourceInstances), it instead
+// returns one Block per instance, each addressed exactly the way Terraform
+// itself would (`type.name["key"]` / `type.name[0]`) - which, because
+// traversalString() (traversal.go) already renders a real
+// `type.name["key"].attr`-style reference the same way, means every
+// existing cross-reference in this codebase (TS-side resolveReference's
+// plain two-segment-prefix terminal match) resolves to these addresses with
+// no further changes needed anywhere else. When the for_each/count value
+// isn't statically knowable (e.g. driven by a variable), falls back to the
+// single unindexed Block, unchanged from pre-expansion behavior.
+func buildResourceLikeBlock(b *hclsyntax.Block, kind string) []Block {
 	typ, name := "", ""
 	if len(b.Labels) > 0 {
 		typ = b.Labels[0]
@@ -160,18 +186,35 @@ func buildResourceLikeBlock(b *hclsyntax.Block, kind string) Block {
 	if len(b.Labels) > 1 {
 		name = b.Labels[1]
 	}
-	address := typ + "." + name
+	baseAddress := typ + "." + name
 	if kind == "data" {
-		address = "data." + address
+		baseAddress = "data." + baseAddress
 	}
-	return Block{
-		Kind:       kind,
-		Type:       typ,
-		Name:       name,
-		Address:    address,
-		Range:      blockRange(b),
-		Attributes: collectAttributes(b.Body),
+
+	instances, expandable := resourceInstances(b.Body)
+	if !expandable {
+		return []Block{{
+			Kind:       kind,
+			Type:       typ,
+			Name:       name,
+			Address:    baseAddress,
+			Range:      blockRange(b),
+			Attributes: collectAttributes(b.Body),
+		}}
 	}
+
+	blocks := make([]Block, 0, len(instances))
+	for _, inst := range instances {
+		blocks = append(blocks, Block{
+			Kind:       kind,
+			Type:       typ,
+			Name:       name + inst.suffix,
+			Address:    baseAddress + inst.suffix,
+			Range:      blockRange(b),
+			Attributes: collectAttributesWithContext(b.Body, inst.ctx),
+		})
+	}
+	return blocks
 }
 
 // buildNamedBlock builds a Block for a single-label, no-type block kind
@@ -191,8 +234,61 @@ func buildNamedBlock(b *hclsyntax.Block, kind string, addrPrefix string) Block {
 	}
 }
 
-func buildModuleBlock(b *hclsyntax.Block) Block {
-	return buildNamedBlock(b, "module", "module.")
+// moduleCallInstance pairs one "module" block with one specific instance's
+// address suffix ("" when for_each/count isn't present or isn't statically
+// resolvable - a single, unindexed instance, same as pre-expansion behavior)
+// and the hcl.EvalContext that binds each.key/each.value/count.index for
+// that instance, so the recursion pass below can build the right per-
+// instance child prefix and evaluate this call's own attributes correctly.
+type moduleCallInstance struct {
+	block  *hclsyntax.Block
+	suffix string
+	ctx    *hcl.EvalContext
+}
+
+// buildModuleBlocks is buildResourceLikeBlock's counterpart for "module"
+// blocks: ordinarily (no for_each/count) a single Block plus a single
+// moduleCallInstance with an empty suffix, exactly matching pre-expansion
+// behavior. When for_each/count is present and statically resolvable, one
+// Block *and* one moduleCallInstance per instance instead - each instance
+// gets its own recursion into the (shared) child module directory, with its
+// own instance-specific address prefix, so its own resources are addressed
+// module.name["key"].resource.foo rather than colliding under one shared
+// module.name.* prefix.
+func buildModuleBlocks(b *hclsyntax.Block) ([]Block, []moduleCallInstance) {
+	name := ""
+	if len(b.Labels) > 0 {
+		name = b.Labels[0]
+	}
+	baseAddress := "module." + name
+
+	instances, expandable := resourceInstances(b.Body)
+	if !expandable {
+		block := Block{
+			Kind:       "module",
+			Type:       "",
+			Name:       name,
+			Address:    baseAddress,
+			Range:      blockRange(b),
+			Attributes: collectAttributes(b.Body),
+		}
+		return []Block{block}, []moduleCallInstance{{block: b, suffix: ""}}
+	}
+
+	blocks := make([]Block, 0, len(instances))
+	calls := make([]moduleCallInstance, 0, len(instances))
+	for _, inst := range instances {
+		blocks = append(blocks, Block{
+			Kind:       "module",
+			Type:       "",
+			Name:       name + inst.suffix,
+			Address:    baseAddress + inst.suffix,
+			Range:      blockRange(b),
+			Attributes: collectAttributesWithContext(b.Body, inst.ctx),
+		})
+		calls = append(calls, moduleCallInstance{block: b, suffix: inst.suffix, ctx: inst.ctx})
+	}
+	return blocks, calls
 }
 
 // buildLocalsBlocks expands one `locals { foo = ..., bar = ... }` block (0
@@ -213,7 +309,7 @@ func buildLocalsBlocks(b *hclsyntax.Block) []Block {
 
 	blocks := make([]Block, 0, len(attrs))
 	for _, a := range attrs {
-		attr := buildAttribute(a)
+		attr := buildAttribute(a, nil)
 		blocks = append(blocks, Block{
 			Kind:       "locals",
 			Type:       "",

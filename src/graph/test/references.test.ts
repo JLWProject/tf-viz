@@ -103,6 +103,100 @@ describe('resolveReference', () => {
     it('drops count.index', () => {
       assert.deepEqual(resolveReference('count.index', root, index, new Set(), 0), []);
     });
+
+    it('resolves an exact indexed reference to that one instance', () => {
+      const result = resolveReference(
+        'azurerm_storage_account.each_example["a"].id',
+        root,
+        index,
+        new Set(),
+        0
+      );
+      assert.deepEqual(result, ['azurerm_storage_account.each_example["a"]']);
+    });
+
+    it('resolves count[N] the same way', () => {
+      const result = resolveReference('azurerm_storage_account.count_example[0].id', root, index, new Set(), 0);
+      assert.deepEqual(result, ['azurerm_storage_account.count_example[0]']);
+    });
+
+    it('fans a bare (unindexed) reference to a for_each resource out to every one of its instances', () => {
+      // Valid Terraform for "all instances at once" (e.g. a for-expression
+      // iterating the whole resource) - no block is ever stored at the bare
+      // unindexed address once expanded, so this only works via the
+      // resolveAgainstScope instance-prefix fallback (see references.ts).
+      const result = resolveReference('azurerm_storage_account.each_example', root, index, new Set(), 0);
+      assert.deepEqual(
+        new Set(result),
+        new Set(['azurerm_storage_account.each_example["a"]', 'azurerm_storage_account.each_example["b"]'])
+      );
+    });
+
+    it('fans a bare (unindexed) reference to a count resource out to every one of its instances', () => {
+      const result = resolveReference('azurerm_storage_account.count_example', root, index, new Set(), 0);
+      assert.deepEqual(
+        new Set(result),
+        new Set(['azurerm_storage_account.count_example[0]', 'azurerm_storage_account.count_example[1]'])
+      );
+    });
+  });
+
+  describe('for_each_dynamic fixture', () => {
+    const output = loadFixture('for_each_dynamic');
+    const index = buildModuleIndex(output);
+    const root = index.get('')!;
+
+    it('resolves the single unindexed node normally when for_each is not a literal (no instance fan-out)', () => {
+      const result = resolveReference('azurerm_storage_account.dynamic_example', root, index, new Set(), 0);
+      assert.deepEqual(result, ['azurerm_storage_account.dynamic_example']);
+    });
+  });
+
+  describe('module_for_each fixture', () => {
+    const output = loadFixture('module_for_each');
+    const index = buildModuleIndex(output);
+    const root = index.get('')!;
+
+    it('resolves an indexed module output reference into that one instance\'s own child scope', () => {
+      // root's output.storage_a_id references module.storage["a"].storage_id,
+      // whose own value is azurerm_storage_account.this.id inside that one
+      // instance's child scope.
+      const result = resolveReference('module.storage["a"].storage_id', root, index, new Set(), 0);
+      assert.deepEqual(result, ['module.storage["a"].azurerm_storage_account.this']);
+    });
+
+    it('resolves var.<name> up to the parent module block for a specific instance', () => {
+      const childA = index.get('module.storage["a"].')!;
+      const result = resolveReference('var.resource_group_name', childA, index, new Set(), 0);
+      assert.deepEqual(result, ['azurerm_resource_group.rg']);
+
+      const childB = index.get('module.storage["b"].')!;
+      const resultB = resolveReference('var.resource_group_name', childB, index, new Set(), 0);
+      assert.deepEqual(resultB, ['azurerm_resource_group.rg']);
+    });
+
+    it('fans a bare module reference with an output name out to every instance\'s child scope', () => {
+      // Not valid final-state Terraform once for_each is set on the module
+      // (a real reference needs an index) - see the fixture's own comment -
+      // but this tool still resolves it usefully rather than dropping it.
+      const result = resolveReference('module.storage.storage_id', root, index, new Set(), 0);
+      assert.deepEqual(
+        new Set(result),
+        new Set(['module.storage["a"].azurerm_storage_account.this', 'module.storage["b"].azurerm_storage_account.this'])
+      );
+    });
+  });
+
+  describe('module_dynamic fixture', () => {
+    const output = loadFixture('module_dynamic');
+    const index = buildModuleIndex(output);
+    const root = index.get('')!;
+
+    it('resolves module.<name>.<output> normally when for_each is not a literal (single unindexed child scope)', () => {
+      const child = index.get('module.storage.')!;
+      assert.ok(child, 'expected a single unindexed module.storage. child scope');
+      assert.equal(root.blocksByAddress.has('module.storage'), true);
+    });
   });
 
   describe('dynamic_block fixture', () => {

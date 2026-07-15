@@ -161,10 +161,19 @@ body {
   color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
   border: 1px solid var(--vscode-button-border, transparent);
   border-radius: 3px;
-  padding: 3px 10px;
+  padding: 2px 8px;
   cursor: pointer;
   font-family: inherit;
-  font-size: inherit;
+  font-size: 0.9em;
+  /* Without these two, the flex toolbar shrinks a button below its natural
+     single-line width once the panel gets narrow, wrapping its label onto
+     2-3 lines - it doesn't visually "grow", but the wrapped multi-line text
+     roughly doubles/triples the button's height, which reads the same way.
+     nowrap + flex-shrink:0 keeps it at a constant compact size regardless of
+     window width; `.toolbar-search`'s own min-width is what actually absorbs
+     a narrower toolbar instead. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toolbar-button:hover {
@@ -258,7 +267,7 @@ body {
 .info-row {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 2px;
   width: 100%;
   background-color: transparent;
@@ -267,7 +276,7 @@ body {
   padding: 5px 8px;
   cursor: pointer;
   font-family: inherit;
-  text-align: left;
+  text-align: center;
   color: inherit;
 }
 

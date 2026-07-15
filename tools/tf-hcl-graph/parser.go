@@ -114,8 +114,13 @@ func buildReferences(expr hcl.Expression) []Reference {
 	return refs
 }
 
-func buildAttribute(a *hclsyntax.Attribute) Attribute {
-	value, _ := literalAttributeValue(a.Expr)
+// buildAttribute builds one Attribute. ctx is nil for an ordinary block;
+// for a for_each/count instance block (see instances.go) it binds
+// each.key/each.value or count.index to that instance's own value, so the
+// instance's own literalAttributeValue can resolve an expression like
+// `name = "st${each.key}"` to a real per-instance literal.
+func buildAttribute(a *hclsyntax.Attribute, ctx *hcl.EvalContext) Attribute {
+	value, _ := literalAttributeValue(a.Expr, ctx)
 	return Attribute{
 		Name:       a.Name,
 		Range:      toRange(a.SrcRange),
@@ -132,15 +137,22 @@ func buildAttribute(a *hclsyntax.Attribute) Attribute {
 // Block. Sorted by source position for deterministic output (map iteration
 // order in hclsyntax.Body.Attributes is not stable).
 func collectAttributes(body *hclsyntax.Body) []Attribute {
+	return collectAttributesWithContext(body, nil)
+}
+
+// collectAttributesWithContext is collectAttributes, but evaluating every
+// attribute's literal Value against ctx instead of a bare nil context - see
+// buildAttribute's doc comment.
+func collectAttributesWithContext(body *hclsyntax.Body, ctx *hcl.EvalContext) []Attribute {
 	if body == nil {
 		return []Attribute{}
 	}
 	attrs := make([]Attribute, 0, len(body.Attributes))
 	for _, a := range body.Attributes {
-		attrs = append(attrs, buildAttribute(a))
+		attrs = append(attrs, buildAttribute(a, ctx))
 	}
 	for _, b := range body.Blocks {
-		attrs = append(attrs, collectAttributes(b.Body)...)
+		attrs = append(attrs, collectAttributesWithContext(b.Body, ctx)...)
 	}
 	sort.Slice(attrs, func(i, j int) bool { return rangeLess(attrs[i].Range, attrs[j].Range) })
 	return attrs

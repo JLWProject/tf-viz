@@ -93,6 +93,24 @@ The search box filters the graph *and* the side panel together by address/type/n
   that supplied it via the `module "x" { ... }` call; `local.x` resolves within the
   same scope. This works because the graph is built from real HCL expression
   parsing (`hcl.Expression.Variables()`), not regex.
+- A `resource`/`data` block using `for_each` or `count` expands into one node per
+  instance — `azurerm_storage_account.example["a"]`, `azurerm_storage_account.example[0]`
+  — matching Terraform's own instance addressing, whenever the value is a literal
+  the tool can evaluate without running `terraform plan` (a map/object literal, a
+  `toset([...])` of string literals, or a literal number). `each.key`/`each.value`/
+  `count.index` are substituted per instance too, so e.g. `name = "vm-${count.index}"`
+  shows the real resolved name on each instance's own card. A downstream reference
+  to one specific instance (`example["a"].id`) resolves to that instance alone; a
+  reference to the whole resource with no index (valid Terraform for "all
+  instances at once", e.g. a `for` expression iterating it) fans out to every
+  instance instead of being dropped.
+- `module` blocks expand the same way: `module.name["a"]`/`module.name[0]`, each
+  with its own independently-recursed child scope, so e.g.
+  `module.name["a"].some_resource` and `module.name["b"].some_resource` are
+  distinct nodes in distinct module clusters, not merged into one. A child
+  instance's `var.x` reference resolves up to that same instance's own
+  `module.name["a"] { ... }` call attributes — two instances of the same module
+  can depend on different things if their own inputs differ.
 - Where an attribute's value is a plain literal in source (a CIDR block, a SKU
   name, an instance size — not something derived from another resource), it's
   surfaced as a small curated detail line on the card, picked per resource category
@@ -119,8 +137,12 @@ The search box filters the graph *and* the side panel together by address/type/n
 - Registry/git-sourced child modules are shown as opaque nodes (not expanded)
   unless `.terraform/modules/modules.json` already exists from a prior
   `terraform init` — resolving those without requiring `init` first is backlog.
-- `count`/`for_each`-expanded resources are graphed at the base-address level, not
-  per-instance.
+- `count`/`for_each` expansion only applies when the value is a literal written
+  directly in source (a map/object literal, `toset([...])` of string literals, or
+  a literal number) — one actually knowable without running `terraform plan`. A
+  value derived from a variable, another resource, or a function this tool
+  doesn't evaluate falls back to a single, unindexed node for that resource,
+  same as before this was added.
 - No live file-watching yet — use the refresh command after edits.
 - Dragging a node doesn't reflow anything else around it, and a node dragged far
   enough can end up visually outside its module's background panel. There's

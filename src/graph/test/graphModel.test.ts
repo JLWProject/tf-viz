@@ -109,13 +109,74 @@ describe('buildGraphModel', () => {
   describe('for_each_count fixture', () => {
     const model = buildGraphModel(loadFixture('for_each_count'));
 
-    it('resolves the genuine resource_group_name reference on both resources', () => {
-      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.each_example', 'azurerm_resource_group.rg'));
-      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.count_example', 'azurerm_resource_group.rg'));
+    it('produces one node per expanded for_each/count instance, not one per resource', () => {
+      const names = model.nodes.map((n) => n.address);
+      assert.ok(names.includes('azurerm_storage_account.each_example["a"]'));
+      assert.ok(names.includes('azurerm_storage_account.each_example["b"]'));
+      assert.ok(names.includes('azurerm_storage_account.count_example[0]'));
+      assert.ok(names.includes('azurerm_storage_account.count_example[1]'));
+      assert.ok(!names.includes('azurerm_storage_account.each_example'));
+      assert.ok(!names.includes('azurerm_storage_account.count_example'));
     });
 
-    it('produces no edges from each.*/count.* usage (only the 2 genuine edges exist)', () => {
-      assert.equal(model.edges.length, 2);
+    it('resolves the genuine resource_group_name reference on every instance', () => {
+      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.each_example["a"]', 'azurerm_resource_group.rg'));
+      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.each_example["b"]', 'azurerm_resource_group.rg'));
+      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.count_example[0]', 'azurerm_resource_group.rg'));
+      assert.ok(hasEdge(model.edges, 'azurerm_storage_account.count_example[1]', 'azurerm_resource_group.rg'));
+    });
+
+    it('produces no edges from each.*/count.* usage (only the 4 genuine per-instance edges exist)', () => {
+      assert.equal(model.edges.length, 4);
+    });
+  });
+
+  describe('for_each_set fixture', () => {
+    const model = buildGraphModel(loadFixture('for_each_set'));
+
+    it('expands a toset(...)-literal for_each into one node per element, keyed by the element itself', () => {
+      const names = model.nodes.map((n) => n.address);
+      assert.ok(names.includes('azurerm_storage_account.set_example["web"]'));
+      assert.ok(names.includes('azurerm_storage_account.set_example["db"]'));
+    });
+  });
+
+  describe('for_each_dynamic fixture', () => {
+    const model = buildGraphModel(loadFixture('for_each_dynamic'));
+
+    it('falls back to a single unindexed node when for_each is not a literal', () => {
+      const names = model.nodes.map((n) => n.address);
+      assert.ok(names.includes('azurerm_storage_account.dynamic_example'));
+    });
+  });
+
+  describe('module_for_each fixture', () => {
+    const model = buildGraphModel(loadFixture('module_for_each'));
+
+    it('produces one module node and one child-scope resource node per instance', () => {
+      const addresses = model.nodes.map((n) => n.address);
+      assert.ok(addresses.includes('module.storage["a"]'));
+      assert.ok(addresses.includes('module.storage["b"]'));
+      assert.ok(addresses.includes('module.storage["a"].azurerm_storage_account.this'));
+      assert.ok(addresses.includes('module.storage["b"].azurerm_storage_account.this'));
+      assert.ok(!addresses.includes('module.storage'));
+    });
+
+    it('labels each instance child scope with its own instance-suffixed module label', () => {
+      const byAddress = new Map(model.nodes.map((n) => [n.address, n]));
+      assert.equal(byAddress.get('module.storage["a"].azurerm_storage_account.this')!.module, 'module.storage["a"]');
+      assert.equal(byAddress.get('module.storage["b"].azurerm_storage_account.this')!.module, 'module.storage["b"]');
+    });
+
+    it('resolves the indexed output reference edge (root -> one specific instance)', () => {
+      assert.ok(
+        hasEdge(model.edges, 'output.storage_a_id', 'module.storage["a"].azurerm_storage_account.this')
+      );
+    });
+
+    it('resolves both instances\' var.resource_group_name up to the same root resource', () => {
+      assert.ok(hasEdge(model.edges, 'module.storage["a"]', 'azurerm_resource_group.rg'));
+      assert.ok(hasEdge(model.edges, 'module.storage["b"]', 'azurerm_resource_group.rg'));
     });
   });
 

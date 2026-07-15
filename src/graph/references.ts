@@ -81,6 +81,20 @@ export function resolveReference(
  * `module.<name>` is treated as the output name; anything further is
  * ignored (v1 simplification per the plan - exotic nested-attribute-on-an-
  * output-value shapes aren't expected in practice).
+ *
+ * `callName` (`parts[1]`) is used as-is against the module index, which
+ * means it transparently carries a for_each/count instance suffix when the
+ * reference names one specific instance (e.g. `module.name["a"].out` ->
+ * callName `name["a"]"`, matching the exact child scope prefix
+ * tf-hcl-graph's instances.go-driven expansion produces for that instance -
+ * see buildModuleBlocks/graph.go). No special-casing needed for that exact-
+ * instance case.
+ *
+ * A *bare* callName with no index (e.g. `module.name.out`) additionally
+ * falls back to fanning out across every expanded instance's own child
+ * scope when there's no scope at that exact prefix - valid Terraform for
+ * "all instances at once" (e.g. `[for m in module.name : m.out]`), same
+ * reasoning as resolveAgainstScope's resource-side fallback below.
  */
 function resolveModuleOutputReference(
   parts: string[],
@@ -96,13 +110,29 @@ function resolveModuleOutputReference(
   const outputName = parts[2];
 
   const childPrefix = `${scope.prefix}module.${callName}.`;
-  const childScope = index.get(childPrefix);
-  if (!childScope) {
-    // Missing child scope: an opaque/unexpanded module (registry/git source
-    // that couldn't be resolved to a directory), or not a real module call.
-    return [];
+  const directChild = index.get(childPrefix);
+  if (directChild) {
+    return resolveModuleOutputInScope(directChild, outputName, index, visited, depth);
   }
 
+  const instancePrefixStart = `${scope.prefix}module.${callName}[`;
+  const results: string[] = [];
+  for (const [prefix, childScope] of index) {
+    if (prefix.startsWith(instancePrefixStart)) {
+      results.push(...resolveModuleOutputInScope(childScope, outputName, index, visited, depth));
+    }
+  }
+  return dedupe(results);
+}
+
+/** Resolves `output.<outputName>`'s own references, inside a specific already-found child scope. */
+function resolveModuleOutputInScope(
+  childScope: ModuleScope,
+  outputName: string,
+  index: Map<string, ModuleScope>,
+  visited: Set<string>,
+  depth: number
+): string[] {
   const outputBlock = childScope.blocksByAddress.get(`output.${outputName}`);
   if (!outputBlock) {
     return [];
@@ -183,10 +213,7 @@ function resolveDataReference(parts: string[], scope: ModuleScope): string[] {
     return [];
   }
   const candidate = parts.slice(0, 3).join('.');
-  if (scope.blocksByAddress.has(candidate)) {
-    return [scope.prefix + candidate];
-  }
-  return [];
+  return resolveAgainstScope(candidate, scope);
 }
 
 /**
@@ -200,10 +227,40 @@ function resolveDataReference(parts: string[], scope: ModuleScope): string[] {
  */
 function resolvePlainReference(parts: string[], scope: ModuleScope): string[] {
   const candidate = parts.slice(0, 2).join('.');
+  return resolveAgainstScope(candidate, scope);
+}
+
+/**
+ * Resolves `candidate` (e.g. "azurerm_subnet.foo" or
+ * "data.azurerm_resource_group.example") against a scope's known blocks: an
+ * exact address match (the common, non-expanded case) takes priority.
+ *
+ * Failing that, `candidate` might name the *base* (unindexed) address of a
+ * for_each/count resource - see tf-hcl-graph's instances.go, which expands
+ * such a resource into one Block per instance (`candidate["key"]` /
+ * `candidate[0]`), so no block is ever stored at the bare `candidate`
+ * address anymore. Referencing that bare address is still valid Terraform
+ * though - e.g. `for x in azurerm_storage_account.each_example : x.id`, or a
+ * downstream `for_each = azurerm_storage_account.each_example` fan-out, both
+ * mean "all instances of this resource" - so this falls back to every known
+ * block address prefixed by `candidate[`, resolving to *all* of that
+ * resource's instances instead of silently dropping the reference. That's
+ * strictly better graph fidelity than the pre-expansion single-node
+ * behavior, not just a shim to avoid a regression: it draws an edge to each
+ * real instance rather than one aggregate stand-in node.
+ */
+function resolveAgainstScope(candidate: string, scope: ModuleScope): string[] {
   if (scope.blocksByAddress.has(candidate)) {
     return [scope.prefix + candidate];
   }
-  return [];
+  const instancePrefix = `${candidate}[`;
+  const results: string[] = [];
+  for (const addr of scope.blockAddresses) {
+    if (addr.startsWith(instancePrefix)) {
+      results.push(scope.prefix + addr);
+    }
+  }
+  return results;
 }
 
 function dedupe(values: string[]): string[] {

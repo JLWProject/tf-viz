@@ -222,29 +222,187 @@ func TestForEachAndCountRawTraversals(t *testing.T) {
 	}
 	root := moduleByPrefix(t, out, "")
 
-	eachRes := blockByAddress(t, root, "azurerm_storage_account.each_example")
-	nameAttr := attrByName(t, eachRes, "name")
-	if !hasReference(nameAttr.References, "each.key") {
-		t.Errorf("expected raw each.key traversal in name attribute, got %+v", nameAttr.References)
+	// A literal for_each map expands into one Block per key, addressed
+	// exactly the way Terraform itself (and a real reference to one specific
+	// instance) would: `type.name["key"]` - see instances.go/traversal.go.
+	eachA := blockByAddress(t, root, `azurerm_storage_account.each_example["a"]`)
+	nameAttrA := attrByName(t, eachA, "name")
+	if !hasReference(nameAttrA.References, "each.key") {
+		t.Errorf("expected raw each.key traversal in name attribute, got %+v", nameAttrA.References)
 	}
-	locationAttr := attrByName(t, eachRes, "location")
-	if !hasReference(locationAttr.References, "each.value") {
-		t.Errorf("expected raw each.value traversal in location attribute, got %+v", locationAttr.References)
+	// each.key/each.value are now bound to this specific instance's own
+	// value, so the previously-unresolvable `"st${each.key}"` template
+	// literal now resolves to a real per-instance value.
+	if nameAttrA.Value != "sta" {
+		t.Errorf(`expected each_example["a"]'s name Value to resolve to "sta" (each.key bound), got %q`, nameAttrA.Value)
 	}
-	rgAttr := attrByName(t, eachRes, "resource_group_name")
-	if !hasReference(rgAttr.References, "azurerm_resource_group.rg.name") {
-		t.Errorf("genuine resource reference should still be captured alongside each.*, got %+v", rgAttr.References)
+	locationAttrA := attrByName(t, eachA, "location")
+	if !hasReference(locationAttrA.References, "each.value") {
+		t.Errorf("expected raw each.value traversal in location attribute, got %+v", locationAttrA.References)
+	}
+	if locationAttrA.Value != "1" {
+		t.Errorf(`expected each_example["a"]'s location Value to resolve to "1" (each.value bound), got %q`, locationAttrA.Value)
+	}
+	rgAttrA := attrByName(t, eachA, "resource_group_name")
+	if !hasReference(rgAttrA.References, "azurerm_resource_group.rg.name") {
+		t.Errorf("genuine resource reference should still be captured alongside each.*, got %+v", rgAttrA.References)
 	}
 
-	countRes := blockByAddress(t, root, "azurerm_storage_account.count_example")
-	countName := attrByName(t, countRes, "name")
-	if !hasReference(countName.References, "count.index") {
-		t.Errorf("expected raw count.index traversal in name attribute, got %+v", countName.References)
+	eachB := blockByAddress(t, root, `azurerm_storage_account.each_example["b"]`)
+	nameAttrB := attrByName(t, eachB, "name")
+	if nameAttrB.Value != "stb" {
+		t.Errorf(`expected each_example["b"]'s name Value to resolve to "stb", got %q`, nameAttrB.Value)
 	}
-	countRg := attrByName(t, countRes, "resource_group_name")
-	if !hasReference(countRg.References, "azurerm_resource_group.rg.name") {
-		t.Errorf("genuine resource reference should still be captured alongside count.*, got %+v", countRg.References)
+
+	// A literal count expands into one Block per index, 0-based, same
+	// `type.name[N]` addressing convention.
+	count0 := blockByAddress(t, root, "azurerm_storage_account.count_example[0]")
+	countName0 := attrByName(t, count0, "name")
+	if !hasReference(countName0.References, "count.index") {
+		t.Errorf("expected raw count.index traversal in name attribute, got %+v", countName0.References)
 	}
+	if countName0.Value != "stcount0" {
+		t.Errorf(`expected count_example[0]'s name Value to resolve to "stcount0" (count.index bound), got %q`, countName0.Value)
+	}
+	countRg0 := attrByName(t, count0, "resource_group_name")
+	if !hasReference(countRg0.References, "azurerm_resource_group.rg.name") {
+		t.Errorf("genuine resource reference should still be captured alongside count.*, got %+v", countRg0.References)
+	}
+
+	count1 := blockByAddress(t, root, "azurerm_storage_account.count_example[1]")
+	countName1 := attrByName(t, count1, "name")
+	if countName1.Value != "stcount1" {
+		t.Errorf(`expected count_example[1]'s name Value to resolve to "stcount1", got %q`, countName1.Value)
+	}
+
+	// Exactly 2 + 2 instances, no leftover unindexed base-address block.
+	for _, addr := range []string{"azurerm_storage_account.each_example", "azurerm_storage_account.count_example"} {
+		for _, b := range root.Blocks {
+			if b.Address == addr {
+				t.Errorf("unindexed base address %q should not appear once expanded into instances", addr)
+			}
+		}
+	}
+}
+
+func TestForEachSetOfStrings(t *testing.T) {
+	out := buildGraph(fixture("for_each_set"))
+	if len(out.Errors) != 0 {
+		t.Fatalf("unexpected errors: %+v", out.Errors)
+	}
+	root := moduleByPrefix(t, out, "")
+
+	// For a set, each.key == each.value == the element itself.
+	web := blockByAddress(t, root, `azurerm_storage_account.set_example["web"]`)
+	nameAttr := attrByName(t, web, "name")
+	if nameAttr.Value != "stweb" {
+		t.Errorf(`expected set_example["web"]'s name Value to resolve to "stweb", got %q`, nameAttr.Value)
+	}
+	blockByAddress(t, root, `azurerm_storage_account.set_example["db"]`)
+}
+
+func TestForEachCountDynamicFallback(t *testing.T) {
+	out := buildGraph(fixture("for_each_dynamic"))
+	if len(out.Errors) != 0 {
+		t.Fatalf("unexpected errors: %+v", out.Errors)
+	}
+	root := moduleByPrefix(t, out, "")
+
+	// for_each driven by a variable (not a literal) can't be statically
+	// resolved, so it must fall back to a single unindexed block - exactly
+	// like pre-expansion behavior - rather than silently producing zero
+	// instances or guessing.
+	single := blockByAddress(t, root, "azurerm_storage_account.dynamic_example")
+	nameAttr := attrByName(t, single, "name")
+	if !hasReference(nameAttr.References, "each.key") {
+		t.Errorf("expected raw (unresolved) each.key traversal to still be captured, got %+v", nameAttr.References)
+	}
+	if nameAttr.Value != "" {
+		t.Errorf("expected no literal Value for an each.key-templated name when for_each isn't statically known, got %q", nameAttr.Value)
+	}
+}
+
+func TestForEachEmptyMapProducesNoInstances(t *testing.T) {
+	out := buildGraph(fixture("for_each_empty"))
+	if len(out.Errors) != 0 {
+		t.Fatalf("unexpected errors: %+v", out.Errors)
+	}
+	root := moduleByPrefix(t, out, "")
+
+	for _, b := range root.Blocks {
+		if b.Type == "azurerm_storage_account" {
+			t.Errorf("a literal empty for_each map should produce zero instance blocks, found: %+v", b)
+		}
+	}
+}
+
+func TestModuleForEachExpandsPerInstanceChildScopes(t *testing.T) {
+	out := buildGraph(fixture("module_for_each"))
+	if len(out.Errors) != 0 {
+		t.Fatalf("unexpected errors: %+v", out.Errors)
+	}
+
+	// root + 2 module instances (one child Module entry per instance, not
+	// one shared entry).
+	if len(out.Modules) != 3 {
+		t.Fatalf("expected root + 2 module instances, got %d: %+v", len(out.Modules), out.Modules)
+	}
+
+	root := moduleByPrefix(t, out, "")
+	moduleA := blockByAddress(t, root, `module.storage["a"]`)
+	locationA := attrByName(t, moduleA, "location")
+	if locationA.Value != "westeurope" {
+		t.Errorf(`expected module.storage["a"]'s location Value to resolve to "westeurope" (each.value bound), got %q`, locationA.Value)
+	}
+	moduleB := blockByAddress(t, root, `module.storage["b"]`)
+	locationB := attrByName(t, moduleB, "location")
+	if locationB.Value != "northeurope" {
+		t.Errorf(`expected module.storage["b"]'s location Value to resolve to "northeurope", got %q`, locationB.Value)
+	}
+	for _, addr := range []string{"module.storage"} {
+		for _, b := range root.Blocks {
+			if b.Address == addr {
+				t.Errorf("unindexed base module address %q should not appear once expanded into instances", addr)
+			}
+		}
+	}
+
+	// Each instance recursed into its own child scope, addressed with its
+	// own instance suffix, both resolving var.resource_group_name up to the
+	// SAME root resource (proving computeParentLink's per-instance callName
+	// resolution works, not just the Go-side expansion).
+	childA := moduleByPrefix(t, out, `module.storage["a"].`)
+	if !childA.Expanded {
+		t.Errorf(`module.storage["a"] child scope should be expanded (local relative-path source)`)
+	}
+	resourceA := blockByAddress(t, childA, "azurerm_storage_account.this")
+	rgAttrA := attrByName(t, resourceA, "resource_group_name")
+	if !hasReference(rgAttrA.References, "var.resource_group_name") {
+		t.Errorf("child resource should reference var.resource_group_name, got %+v", rgAttrA.References)
+	}
+
+	childB := moduleByPrefix(t, out, `module.storage["b"].`)
+	blockByAddress(t, childB, "azurerm_storage_account.this")
+}
+
+func TestModuleDynamicForEachFallsBackToSingleInstance(t *testing.T) {
+	out := buildGraph(fixture("module_dynamic"))
+	if len(out.Errors) != 0 {
+		t.Fatalf("unexpected errors: %+v", out.Errors)
+	}
+
+	// for_each driven by a variable isn't statically knowable, so the module
+	// call falls back to a single unindexed instance - exactly like
+	// pre-expansion behavior, and exactly like the resource/data fallback.
+	if len(out.Modules) != 2 {
+		t.Fatalf("expected root + 1 unindexed module instance, got %d: %+v", len(out.Modules), out.Modules)
+	}
+
+	root := moduleByPrefix(t, out, "")
+	blockByAddress(t, root, "module.storage")
+
+	child := moduleByPrefix(t, out, "module.storage.")
+	blockByAddress(t, child, "azurerm_storage_account.this")
 }
 
 func TestDynamicBlockIteratorRawTraversals(t *testing.T) {

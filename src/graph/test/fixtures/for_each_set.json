@@ -1,0 +1,156 @@
+{
+  "errors": [],
+  "modules": [
+    {
+      "prefix": "",
+      "directory": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set",
+      "expanded": true,
+      "blocks": [
+        {
+          "kind": "resource",
+          "type": "azurerm_storage_account",
+          "name": "set_example[\"web\"]",
+          "address": "azurerm_storage_account.set_example[\"web\"]",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+            "startLine": 1,
+            "startColumn": 1,
+            "endLine": 6,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "for_each",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 2,
+                "startColumn": 3,
+                "endLine": 2,
+                "endColumn": 34
+              },
+              "references": []
+            },
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 4,
+                "startColumn": 3,
+                "endLine": 4,
+                "endColumn": 29
+              },
+              "references": [
+                {
+                  "expression": "each.key",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                    "startLine": 4,
+                    "startColumn": 19,
+                    "endLine": 4,
+                    "endColumn": 27
+                  }
+                }
+              ],
+              "value": "stweb"
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 5,
+                "startColumn": 3,
+                "endLine": 5,
+                "endColumn": 24
+              },
+              "references": [
+                {
+                  "expression": "each.value",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                    "startLine": 5,
+                    "startColumn": 14,
+                    "endLine": 5,
+                    "endColumn": 24
+                  }
+                }
+              ],
+              "value": "web"
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "type": "azurerm_storage_account",
+          "name": "set_example[\"db\"]",
+          "address": "azurerm_storage_account.set_example[\"db\"]",
+          "range": {
+            "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+            "startLine": 1,
+            "startColumn": 1,
+            "endLine": 6,
+            "endColumn": 2
+          },
+          "attributes": [
+            {
+              "name": "for_each",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 2,
+                "startColumn": 3,
+                "endLine": 2,
+                "endColumn": 34
+              },
+              "references": []
+            },
+            {
+              "name": "name",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 4,
+                "startColumn": 3,
+                "endLine": 4,
+                "endColumn": 29
+              },
+              "references": [
+                {
+                  "expression": "each.key",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                    "startLine": 4,
+                    "startColumn": 19,
+                    "endLine": 4,
+                    "endColumn": 27
+                  }
+                }
+              ],
+              "value": "stdb"
+            },
+            {
+              "name": "location",
+              "range": {
+                "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                "startLine": 5,
+                "startColumn": 3,
+                "endLine": 5,
+                "endColumn": 24
+              },
+              "references": [
+                {
+                  "expression": "each.value",
+                  "range": {
+                    "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
+                    "startLine": 5,
+                    "startColumn": 14,
+                    "endLine": 5,
+                    "endColumn": 24
+                  }
+                }
+              ],
+              "value": "db"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

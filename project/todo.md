@@ -115,10 +115,66 @@ listing needs its own clean history/issues/README.
       account (`vsce login`/Azure DevOps PAT), `vsce publish`, verify listing
       renders correctly once the repo is pushed/public
 
+## v1.2 — shipped
+- [x] `count`/`for_each` per-instance graph: a literal (statically-evaluable)
+      for_each/count on a `resource`/`data` block now expands into one node
+      per instance, addressed exactly the way Terraform itself would
+      (`type.name["key"]` / `type.name[0]`) - see `tools/tf-hcl-graph/
+      instances.go`. `each.key`/`each.value`/`count.index` are substituted
+      per instance for the literal-detail extraction too, so e.g.
+      `name = "st${each.key}"` shows the real resolved value on each
+      instance's own card, not just the raw unresolved template.
+      Non-literal for_each/count (driven by a variable, another resource,
+      or an unevaluable function) falls back to a single unindexed node,
+      unchanged from pre-expansion behavior - deliberately fails closed
+      rather than guess. A `toset([...])` literal is specially unwrapped
+      (not a core HCL function, so unevaluable otherwise) since it's the
+      most common real-world literal-set shape. Turned out the existing TS
+      reference-resolution code (`references.ts`/`moduleIndex.ts`) needed
+      almost no changes at all: `traversalString()` (traversal.go) already
+      rendered a real `type.name["key"].attr` reference exactly the same
+      way, so an indexed cross-reference just resolves against the new
+      addresses for free. Did add one real enhancement while in there: a
+      *bare* (unindexed) reference to a for_each/count resource - valid
+      Terraform for "all instances at once" (a `for` expression iterating
+      the whole resource, or a downstream `for_each = that_resource`
+      fan-out) - now fans out to every one of that resource's instances
+      instead of silently dropping the reference (`resolveAgainstScope` in
+      references.ts).
+- [x] `module` blocks' own `count`/`for_each` now expand too (same literal-only
+      rule as above), via `buildModuleBlocks`/`moduleCallInstance` in
+      `graph.go` - one `Block` *and* one independent recursion into the
+      (shared) child directory per instance, prefixed
+      `module.name["a"].`/`module.name[0].` etc. Two instances of the same
+      module call get their own distinct child scope/cluster, not a merged
+      one - each instance's `var.x` resolves up to *that instance's own*
+      `module.name["a"] { ... }` call attributes (`computeParentLink` in
+      moduleIndex.ts already derives the per-instance callName correctly
+      from the prefix string with zero changes needed, same lucky
+      convergence as the resource case). `resolveModuleOutputReference` in
+      references.ts extended with the same bare-reference-fans-out-to-every-
+      instance treatment as `resolveAgainstScope` - worth noting the
+      *realistic* trigger for that path turned out narrower than for
+      resources: a real for-expression like `[for m in module.name : m.out]`
+      never actually produces a traversal with the output name attached (HCL
+      correctly excludes the bound loop variable's own `.out` access from
+      `Expression.Variables()`), so the fan-out only fires for a bare
+      `module.name.out` written directly (not valid final-state Terraform
+      once for_each is set, but a reasonable thing mid-refactor) - kept
+      anyway for defensive value and consistency with the resource side.
+
+## v1.3 — shipped
+- [x] Toolbar fix: "Fit to view"/"Export HTML" had no `white-space: nowrap` or
+      `flex-shrink: 0`, so the flex toolbar would shrink them below their
+      natural single-line width as the panel narrowed, wrapping the label
+      onto 2-3 lines - reads as the button "growing" even though it's really
+      just wrapping. Now a constant, slightly more compact size (smaller
+      padding/font) regardless of window width; `.toolbar-search`'s own
+      min-width absorbs a narrower toolbar instead. Refreshed all 4
+      screenshots + the demo GIF since they all show the toolbar.
+
 ## Backlog (not yet done)
 - Live file-watcher auto-refresh (v1 ships manual refresh only)
-- `count`/`for_each` per-instance graph (v1 is base-address level, same
-  simplification `tf-plan-visualizer` made)
 - Full registry/git module resolution without requiring a prior `terraform init`
 - `elkjs` fallback if dagre's compound-cluster layout looks inadequate at
   real-world scale

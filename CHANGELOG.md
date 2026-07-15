@@ -5,7 +5,73 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.15]
+
+- Fixed the toolbar's "Fit to view"/"Export HTML" buttons ballooning in
+  height as the panel narrows: they had no `white-space: nowrap` or
+  `flex-shrink: 0`, so the flex toolbar shrank them below their natural
+  single-line width, wrapping the label onto 2-3 lines (which reads as the
+  button "growing", even though it never actually grows - just wraps).
+  Buttons now stay a constant, slightly more compact size (smaller padding
+  and font) regardless of window width; `.toolbar-search`'s own min-width is
+  what absorbs a narrower toolbar instead.
+
+## [0.0.14]
+
+- Extended the 0.0.13 `count`/`for_each` per-instance expansion to `module`
+  blocks too: a literal for_each/count on a `module` call now expands into
+  one node per instance (`module.name["a"]` / `module.name[0]`), each with
+  its own independently-recursed child scope - so two instances of the same
+  module call get their own distinct set of child nodes/clusters, not one
+  shared/merged scope. A child instance's `var.x` resolves up to that same
+  instance's own module-call attributes (two instances can depend on
+  different things if their own inputs differ). A bare (unindexed)
+  `module.name.output` reference - not valid final-state Terraform once
+  for_each is set, but a reasonable thing to encounter mid-refactor - fans
+  out across every instance's own output rather than being dropped, mirroring
+  0.0.13's same treatment for resources.
+
+## [0.0.13]
+
+- `count`/`for_each` per-instance graph: a literal for_each/count on a
+  `resource`/`data` block now expands into one node per instance
+  (`type.name["key"]` / `type.name[0]`, matching Terraform's own instance
+  addressing) instead of one node for the whole resource. `each.key`/
+  `each.value`/`count.index` are substituted per instance in curated detail
+  values too (e.g. `name = "st${each.key}"` shows the real resolved name on
+  each instance's card). Non-literal for_each/count (driven by a variable,
+  another resource, or an unevaluable function) still falls back to a single
+  unindexed node, unchanged from before. A bare (unindexed) reference to a
+  for_each/count resource - valid Terraform for referencing "all instances at
+  once" - now fans out to every instance instead of being dropped.
+
+## [0.0.12]
+
+- Confirmed the node-card vertical-centering fix from 0.0.11 (the
+  `getBBox()`-measured post-render pass) against a real-world config -
+  version bump only, no further functional changes.
+
+## [0.0.11]
+
 - Marketplace listing assets: extension icon, README screenshots, demo GIF.
+- Side panel rows (Resources/Data Sources/Modules/Variables/Outputs/Locals)
+  now center their name/detail text, matching the graph node cards.
+- Fixed `npm test`: no `.mocharc.json` existed, so Mocha couldn't find any of
+  the 146 existing unit tests (`Error: No test files found: "test"`) despite
+  `tsconfig.test.json` already referencing it by name. Added one
+  (`ts-node/register/transpile-only`, spec globs for both `src/**` and
+  `webview/src/**`, excluding the separate `@vscode/test-electron` suite).
+- Fixed node cards' name/type/detail/chip text sitting noticeably below true
+  center on some real-world resources - the old vertical-centering math
+  assumed its own size *estimate* (name/type/detail/chip line counts) always
+  matched `layout.ts`'s pre-sized card height exactly. Real content (measured
+  against a live theme's actual font metrics, not the Node-only test
+  fallback) could drift enough from that estimate to visibly bias the block
+  toward the bottom. Now measured for real: the text/chip block renders into
+  its own `.node-content` group, then a post-render pass reads its actual
+  `getBBox()` once the SVG is attached to the live document and nudges it to
+  the card's true vertical center (still never above the icon badge's
+  reserved corner).
 
 ## [0.0.10]
 
