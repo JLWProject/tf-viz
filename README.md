@@ -148,8 +148,6 @@ The search box filters the graph *and* the side panel together by address/type/n
   enough can end up visually outside its module's background panel. There's
   currently no button to reset all dragged positions back to auto-layout — clearing
   it means clearing the extension's `workspaceState` manually.
-- The bundled `tf-hcl-graph` binary currently ships for the platform it was built
-  on only; proper per-platform binary bundling is backlog (see `project/todo.md`).
 
 ## Development
 
@@ -165,7 +163,9 @@ Press F5 in VS Code (launch config included) to run a live Extension Development
 Host against the bundled `nested_module` fixture.
 
 `tools/tf-hcl-graph` is a separate Go module — `cd tools/tf-hcl-graph && go build -o
-tf-hcl-graph . && go test ./...`.
+bin/$(go env GOOS)-$(go env GOARCH)/tf-hcl-graph . && go test ./...` for a single
+local build during iteration, matching the `bin/<platform>-<arch>/` layout
+`src/hclGraphCli.ts` resolves at runtime.
 
 `webview/dev-preview*.html` are dev-only harnesses (not shipped — excluded via
 `.vscodeignore`) that load the real built webview bundle directly in a plain
@@ -177,9 +177,29 @@ not just guesses.
 
 ### Packaging
 
+`tf-hcl-graph` ships as a native binary, so the extension is published as six
+platform-specific `.vsix` packages rather than one universal one — each
+containing only the single binary that platform needs.
+
 ```
-vsce package --no-dependencies
+bash tools/tf-hcl-graph/build.sh   # cross-compiles all 6 targets into
+                                    # tools/tf-hcl-graph/bin/<platform>-<arch>/
+bash scripts/package-target.sh win32-x64
+bash scripts/package-target.sh win32-arm64
+bash scripts/package-target.sh linux-x64
+bash scripts/package-target.sh linux-arm64
+bash scripts/package-target.sh darwin-x64
+bash scripts/package-target.sh darwin-arm64
 ```
+
+`vsce`'s own `--ignore-other-target-folders` flag (as of `@vscode/vsce` 3.9.2) is
+wired up for the npm-optionalDependencies convention (e.g. `@esbuild/win32-x64`),
+not arbitrary bundled folders — it doesn't actually filter out the other
+platforms' binaries. `scripts/package-target.sh` works around this by generating
+a temporary `.vscodeignore` (the real one plus exclusions for every *other*
+target's `tools/tf-hcl-graph/bin/<target>/`) and pointing `vsce package
+--ignoreFile` at it, so each package only bundles the one binary it needs
+(~5 MB) instead of all six (~35 MB).
 
 `package.json`'s `repository` field points at this repo, so `vsce` automatically
 rewrites this README's relative `images/*` links to `raw.githubusercontent.com`
@@ -187,3 +207,7 @@ URLs inside the packaged `readme.md` — the Marketplace listing page will rende
 them once this repo is pushed and public. The images are also bundled directly
 into the `.vsix` (see `.vscodeignore`), so they render in VS Code's local
 Extension Details view too, independent of GitHub.
+
+`vsce publish` (or `vsce package`) needs `--target <target>` for each of the six
+platforms above to publish the matching set of platform-specific listings; see
+[the VS Code docs on platform-specific extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#platformspecific-extensions).

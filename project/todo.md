@@ -173,6 +173,29 @@ listing needs its own clean history/issues/README.
       min-width absorbs a narrower toolbar instead. Refreshed all 4
       screenshots + the demo GIF since they all show the toolbar.
 
+## v1.4 — shipped
+- [x] Fixed a real Windows install failure (`tf-hcl-graph failed ... spawn
+      ...tf-hcl-graph.exe ENOENT`): every `.vsix` through 0.0.15 only ever
+      bundled whatever single binary happened to be `go build`-ed locally
+      (macOS arm64 on this author's machine), so installs on any other OS/arch
+      had nothing to spawn. `tools/tf-hcl-graph/build.sh` now cross-compiles
+      win32/linux/darwin × x64/arm64 into `bin/<platform>-<arch>/`;
+      `src/hclGraphCli.ts` resolves the binary for the running
+      `process.platform`/`process.arch` at that path. Publishing moves from
+      one universal `.vsix` to six platform-specific ones
+      (`scripts/package-target.sh <target>`) - `vsce`'s own
+      `--ignore-other-target-folders` turned out to be wired for the
+      npm-optionalDependencies convention only (doesn't filter arbitrary
+      bundled folders), so the script generates a temporary `.vscodeignore`
+      excluding every other target's `bin/<target>/` and packages via
+      `vsce package --ignoreFile`. Verified by unzipping a `--target
+      win32-x64` package and confirming exactly one binary
+      (`bin/win32-x64/tf-hcl-graph.exe`, `file`-confirmed as a real PE32+
+      Windows executable) ships, at ~5 MB instead of ~35 MB for all six.
+      README's Development/Packaging section updated to match; the old
+      "ships for the platform it was built on only" known-limitation note is
+      gone since it's now fixed.
+
 ## Backlog (not yet done)
 - Live file-watcher auto-refresh (v1 ships manual refresh only)
 - Full registry/git module resolution without requiring a prior `terraform init`

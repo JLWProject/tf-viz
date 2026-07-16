@@ -2,14 +2,23 @@ import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import type { ParserOutput } from './graph/types';
 
-// TODO: this resolves a locally-built dev binary (`cd tools/tf-hcl-graph &&
-// go build -o tf-hcl-graph .`), for use during development only. Packaging
-// needs to bundle per-platform prebuilt binaries (e.g. under a `bin/<os>-
-// <arch>/` layout picked by process.platform/process.arch) instead of
-// relying on this path existing - not this phase's job, don't over-engineer
-// it now.
+// tools/tf-hcl-graph/build.sh cross-compiles one binary per vsce packaging
+// target (see its TARGETS list) into bin/<platform>-<arch>/, matching
+// Node's process.platform/process.arch naming exactly - `vsce package
+// --target <target> --ignore-other-target-folders` recognizes those same
+// names and strips the sibling folders for every other target from that
+// build, so each published .vsix ends up with exactly one binary on disk.
 const BINARY_NAME = process.platform === 'win32' ? 'tf-hcl-graph.exe' : 'tf-hcl-graph';
-const CLI_BINARY_PATH = path.join(__dirname, '..', 'tools', 'tf-hcl-graph', BINARY_NAME);
+const TARGET_DIR = `${process.platform}-${process.arch}`;
+const CLI_BINARY_PATH = path.join(
+  __dirname,
+  '..',
+  'tools',
+  'tf-hcl-graph',
+  'bin',
+  TARGET_DIR,
+  BINARY_NAME
+);
 
 /**
  * Spawns the tf-hcl-graph Go binary against `directory` and parses its

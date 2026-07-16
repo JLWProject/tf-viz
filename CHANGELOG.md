@@ -5,6 +5,19 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.16]
+
+- Fixed `tf-hcl-graph failed ... spawn ...tf-hcl-graph.exe ENOENT` on Windows:
+  every published `.vsix` through 0.0.15 only ever bundled the single binary
+  built on the maintainer's own Mac (`tools/tf-hcl-graph/tf-hcl-graph`, macOS
+  arm64), so any other OS/arch had no binary to spawn. `tf-hcl-graph` is now
+  cross-compiled for win32/linux/darwin × x64/arm64 into
+  `tools/tf-hcl-graph/bin/<platform>-<arch>/` (`tools/tf-hcl-graph/build.sh`),
+  `src/hclGraphCli.ts` resolves the binary for the running
+  `process.platform`/`process.arch`, and the extension now publishes as six
+  platform-specific packages (`scripts/package-target.sh <target>`, one per
+  target) so each install only ships the ~5 MB binary it actually needs.
+
 ## [0.0.15]
 
 - Fixed the toolbar's "Fit to view"/"Export HTML" buttons ballooning in

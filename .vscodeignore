@@ -4,6 +4,7 @@ tsconfig.json
 tsconfig.test.json
 esbuild.js
 .mocharc.json
+scripts/**
 
 out/**
 src/**
@@ -17,6 +18,7 @@ tools/tf-hcl-graph/*.go
 tools/tf-hcl-graph/go.mod
 tools/tf-hcl-graph/go.sum
 tools/tf-hcl-graph/.gitignore
+tools/tf-hcl-graph/build.sh
 tools/tf-hcl-graph/testdata/**
 
 images/icon-source.html
