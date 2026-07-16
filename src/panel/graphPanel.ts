@@ -5,8 +5,15 @@ import * as vscode from 'vscode';
 import { buildGraphModel } from '../graph/graphModel';
 import type { GraphModel, SourceLocation } from '../graph/graphModel';
 import { runHclGraphCli } from '../hclGraphCli';
-import { positionsStateKey } from '../terraformRoot';
+import { positionsStateKey, rememberRootDirectory } from '../terraformRoot';
 import { buildExportedHtml } from './exportHtml';
+
+/**
+ * Debounce window for live-mode's auto-refresh-on-save (see enableLiveMode)
+ * - a save of multiple dirty files in quick succession (e.g. "Save All")
+ * should trigger one rebuild, not one per file.
+ */
+const LIVE_SAVE_DEBOUNCE_MS = 300;
 
 /** One root directory's saved manual node-drag positions, keyed by node address - see terraformRoot.ts's positionsStateKey(). */
 type StoredPositions = Record<string, { x: number; y: number }>;
@@ -33,6 +40,7 @@ type IncomingMessage =
   | { type: 'ready' }
   | { type: 'navigate'; address: string }
   | { type: 'positionsChanged'; positions: StoredPositions }
+  | { type: 'setLiveMode'; enabled: boolean }
   | {
       type: 'exportHtml';
       model: GraphModel;
@@ -91,6 +99,9 @@ function isIncomingMessage(value: unknown): value is IncomingMessage {
   if (type === 'positionsChanged') {
     return isStoredPositions((value as { positions?: unknown }).positions);
   }
+  if (type === 'setLiveMode') {
+    return typeof (value as { enabled?: unknown }).enabled === 'boolean';
+  }
   if (type === 'exportHtml') {
     const candidate = value as {
       model?: unknown;
@@ -141,6 +152,17 @@ export class TfGraphPanel {
    * successful build.
    */
   private currentRootDirectory: string | undefined;
+
+  /**
+   * Live-mode's own listeners (`onDidChangeActiveTextEditor`/
+   * `onDidSaveTextDocument`) - kept separate from `disposables` above so
+   * `disableLiveMode()` can tear down just these without touching the
+   * panel's own message/dispose subscriptions. Empty whenever live mode is
+   * off (used as the "already enabled" guard in `enableLiveMode`).
+   */
+  private liveModeDisposables: vscode.Disposable[] = [];
+  /** Pending debounce timer for live-mode's auto-refresh-on-save, if any. */
+  private liveRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   private constructor(panel: vscode.WebviewPanel, context: vscode.ExtensionContext) {
     this.panel = panel;
@@ -264,7 +286,100 @@ export class TfGraphPanel {
       return;
     }
 
+    if (raw.type === 'setLiveMode') {
+      if (raw.enabled) {
+        this.enableLiveMode();
+      } else {
+        this.disableLiveMode();
+      }
+      return;
+    }
+
     void this.navigateTo(raw.address);
+  }
+
+  /**
+   * Turns on "Live" mode (webview's `liveToggleInput` - see main.ts): the
+   * panel starts following the active editor to a different Terraform root
+   * directory, and rebuilds automatically whenever any `.tf` file is saved.
+   * A no-op if already enabled (`liveModeDisposables` non-empty acts as the
+   * guard, so toggling the webview checkbox twice in a row - or a stray
+   * duplicate message - never registers the listeners twice).
+   */
+  private enableLiveMode(): void {
+    if (this.liveModeDisposables.length > 0) {
+      return;
+    }
+
+    // Sync immediately on enable, rather than waiting for the next editor
+    // switch - if the user already has a different stack's file focused
+    // when they flip the toggle on, it should jump there right away.
+    this.followActiveEditor(vscode.window.activeTextEditor);
+
+    this.liveModeDisposables.push(
+      vscode.window.onDidChangeActiveTextEditor((editor) => this.followActiveEditor(editor)),
+      vscode.workspace.onDidSaveTextDocument((document) => this.onTerraformFileSaved(document))
+    );
+  }
+
+  private disableLiveMode(): void {
+    if (this.liveRefreshTimer) {
+      clearTimeout(this.liveRefreshTimer);
+      this.liveRefreshTimer = undefined;
+    }
+    while (this.liveModeDisposables.length) {
+      this.liveModeDisposables.pop()?.dispose();
+    }
+  }
+
+  /**
+   * If `editor` is a `.tf` file whose directory differs from what's
+   * currently on screen, rebuilds against it and remembers it as the new
+   * "last root" (same bookkeeping `extension.ts`'s own `openAgainst` does
+   * for the manual "Show Dependency Graph" command) - so live-following to a
+   * different stack sticks for next time the panel is reopened, exactly
+   * like manually re-running the command against that file would have.
+   */
+  private followActiveEditor(editor: vscode.TextEditor | undefined): void {
+    const document = editor?.document;
+    if (!document || document.uri.scheme !== 'file' || !document.fileName.toLowerCase().endsWith('.tf')) {
+      return;
+    }
+
+    const directory = path.dirname(document.uri.fsPath);
+    if (directory === this.currentRootDirectory) {
+      return;
+    }
+
+    void this.buildAndPost(directory).then((succeeded) => {
+      if (succeeded) {
+        void rememberRootDirectory(this.context, directory);
+      }
+    });
+  }
+
+  /**
+   * Debounced auto-refresh: any `.tf` file being saved anywhere (not just
+   * under the current root) can change the graph on screen - a shared child
+   * module's file is a common case - so this deliberately doesn't filter by
+   * directory, just rebuilds whatever root is currently shown.
+   */
+  private onTerraformFileSaved(document: vscode.TextDocument): void {
+    if (document.uri.scheme !== 'file' || !document.fileName.toLowerCase().endsWith('.tf')) {
+      return;
+    }
+    if (!this.currentRootDirectory) {
+      return;
+    }
+
+    if (this.liveRefreshTimer) {
+      clearTimeout(this.liveRefreshTimer);
+    }
+    const rootDirectory = this.currentRootDirectory;
+    this.liveRefreshTimer = setTimeout(() => {
+      this.liveRefreshTimer = undefined;
+      void this.buildAndPost(rootDirectory);
+    }, LIVE_SAVE_DEBOUNCE_MS);
   }
 
   /**
@@ -412,6 +527,7 @@ export class TfGraphPanel {
     if (TfGraphPanel.current === this) {
       TfGraphPanel.current = undefined;
     }
+    this.disableLiveMode();
     while (this.disposables.length) {
       this.disposables.pop()?.dispose();
     }

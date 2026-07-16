@@ -5,6 +5,16 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.18]
+
+- Added an opt-in "Live" toolbar toggle (off by default): follows the
+  active editor to a different Terraform root directory the moment you
+  focus a `.tf` file there, and auto-rebuilds the graph whenever any `.tf`
+  file is saved (debounced, not scoped to only the currently-shown
+  directory — a shared child module's file can change the graph too).
+  Switching root directories while live still remembers the new root the
+  same way the manual "Show Dependency Graph" command does.
+
 ## [0.0.17]
 
 - Fixed Variables/Outputs/Locals side-panel rows stretching edge-to-edge

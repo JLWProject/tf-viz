@@ -213,8 +213,20 @@ listing needs its own clean history/issues/README.
       doesn't leak anything unintended into the six published `.vsix`
       packages
 
+## v1.5 — shipped
+- [x] Opt-in "Live" toolbar toggle (off by default): follows the active
+      editor to a different Terraform root directory (a different "stack")
+      as soon as you focus a `.tf` file there, and auto-rebuilds the graph
+      whenever any `.tf` file is saved (debounced 300ms, not scoped to the
+      current root directory alone — a shared child module's file can
+      change the graph too). Implemented as `graphPanel.ts`'s
+      `enableLiveMode`/`disableLiveMode`, wired from a new `setLiveMode`
+      webview→host message (`main.ts`'s `liveToggleInput`). A directory
+      switch while live still remembers the new root the same way the
+      manual "Show Dependency Graph" command does, so it sticks for next
+      time the panel is reopened.
+
 ## Backlog (not yet done)
-- Live file-watcher auto-refresh (v1 ships manual refresh only)
 - Full registry/git module resolution without requiring a prior `terraform init`
 - `elkjs` fallback if dagre's compound-cluster layout looks inadequate at
   real-world scale

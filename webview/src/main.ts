@@ -74,6 +74,22 @@ configToggleLabel.setAttribute('for', 'show-config-nodes');
 configToggleLabel.appendChild(configToggleInput);
 configToggleLabel.appendChild(document.createTextNode('Show variables, outputs & locals'));
 
+// Opt-in, off by default (same convention as configToggleInput above) -
+// when on, the extension host (graphPanel.ts's enableLiveMode) both follows
+// the active editor to a different Terraform root directory and rebuilds
+// automatically whenever a .tf file is saved. Purely a relay: this webview
+// has no filesystem/editor access itself, so toggling just informs the host
+// which mode to run in.
+const liveToggleLabel = document.createElement('label');
+liveToggleLabel.className = 'toolbar-toggle';
+const liveToggleInput = document.createElement('input');
+liveToggleInput.type = 'checkbox';
+liveToggleInput.id = 'live-mode';
+liveToggleInput.checked = false;
+liveToggleLabel.setAttribute('for', 'live-mode');
+liveToggleLabel.appendChild(liveToggleInput);
+liveToggleLabel.appendChild(document.createTextNode('Live (follow file + auto-refresh)'));
+
 const fitButton = document.createElement('button');
 fitButton.type = 'button';
 fitButton.className = 'toolbar-button';
@@ -86,6 +102,7 @@ exportButton.textContent = 'Export HTML';
 
 toolbar.appendChild(searchInput);
 toolbar.appendChild(configToggleLabel);
+toolbar.appendChild(liveToggleLabel);
 toolbar.appendChild(fitButton);
 toolbar.appendChild(exportButton);
 
@@ -473,6 +490,9 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
 
 searchInput.addEventListener('input', () => rerender());
 configToggleInput.addEventListener('change', () => rerender());
+liveToggleInput.addEventListener('change', () => {
+  vscode.postMessage({ type: 'setLiveMode', enabled: liveToggleInput.checked });
+});
 fitButton.addEventListener('click', () => {
   panZoom?.reset();
 });
