@@ -112,8 +112,10 @@ listing needs its own clean history/issues/README.
       public if it isn't already — required before the Marketplace listing
       page can actually resolve the `raw.githubusercontent.com` image links.
 - [ ] PSGallery-style publish walkthrough for VS Code Marketplace: publisher
-      account (`vsce login`/Azure DevOps PAT), `vsce publish`, verify listing
-      renders correctly once the repo is pushed/public
+      account (`vsce login`/Azure DevOps PAT), then `vsce publish --target
+      <t> --packagePath dist-vsix/tf-graph-visualizer-<t>-<version>.vsix` for
+      each of the 6 platform targets (see v1.4 below), verify listing renders
+      correctly once the repo is pushed/public
 
 ## v1.2 — shipped
 - [x] `count`/`for_each` per-instance graph: a literal (statically-evaluable)
@@ -195,6 +197,21 @@ listing needs its own clean history/issues/README.
       README's Development/Packaging section updated to match; the old
       "ships for the platform it was built on only" known-limitation note is
       gone since it's now fixed.
+
+## Pre-publish checklist (before first Marketplace upload)
+- [ ] Review `package.json` dependencies — confirm `@dagrejs/dagre` (and any
+      transitive deps it pulls into the bundle) are all actually still used,
+      nothing left over from earlier iterations
+- [ ] Version-pin dependencies: `package.json`/`package-lock.json` (npm deps)
+      and `tools/tf-hcl-graph/go.mod`/`go.sum` (Go deps) — check for any
+      unpinned/floating ranges (`^`/`~`) that should be exact for a
+      reproducible published build
+- [ ] Security review before first public upload: dependency vuln scan
+      (`npm audit`, `go list -m all` / `govulncheck`), confirm the Go CLI's
+      `execFile` usage in `src/hclGraphCli.ts` still passes `directory` as an
+      argv element (never shell-interpolated), and re-check `.vscodeignore`
+      doesn't leak anything unintended into the six published `.vsix`
+      packages
 
 ## Backlog (not yet done)
 - Live file-watcher auto-refresh (v1 ships manual refresh only)
