@@ -5,6 +5,14 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.17]
+
+- Fixed Variables/Outputs/Locals side-panel rows stretching edge-to-edge
+  with only their text centered inside: each row now shrink-wraps to its
+  own content and centers as a block within the panel, matching the pill
+  treatment already used for the resource/data card variable-reference
+  chips.
+
 ## [0.0.16]
 
 - Fixed `tf-hcl-graph failed ... spawn ...tf-hcl-graph.exe ENOENT` on Windows:
