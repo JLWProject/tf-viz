@@ -88,7 +88,7 @@ liveToggleInput.id = 'live-mode';
 liveToggleInput.checked = false;
 liveToggleLabel.setAttribute('for', 'live-mode');
 liveToggleLabel.appendChild(liveToggleInput);
-liveToggleLabel.appendChild(document.createTextNode('Live (follow file + auto-refresh)'));
+liveToggleLabel.appendChild(document.createTextNode('Live'));
 
 const fitButton = document.createElement('button');
 fitButton.type = 'button';
