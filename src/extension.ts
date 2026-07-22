@@ -68,6 +68,7 @@ async function runRefreshCommand(context: vscode.ExtensionContext): Promise<void
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
+    TfGraphPanel.register(context),
     vscode.commands.registerCommand('tfGraphVisualizer.open', () => runOpenCommand(context)),
     vscode.commands.registerCommand('tfGraphVisualizer.openForFolder', () =>
       runOpenForFolderCommand(context)

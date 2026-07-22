@@ -5,8 +5,11 @@ import * as vscode from 'vscode';
 import { buildGraphModel } from '../graph/graphModel';
 import type { GraphModel, SourceLocation } from '../graph/graphModel';
 import { runHclGraphCli } from '../hclGraphCli';
-import { positionsStateKey, rememberRootDirectory } from '../terraformRoot';
+import { getRememberedRootDirectory, positionsStateKey, rememberRootDirectory } from '../terraformRoot';
 import { buildExportedHtml } from './exportHtml';
+
+/** Registered `createWebviewPanel`/`registerWebviewPanelSerializer` viewType - kept as one constant so the two call sites can never drift apart. */
+const VIEW_TYPE = 'tfGraphVisualizer';
 
 /**
  * Debounce window for live-mode's auto-refresh-on-save (see enableLiveMode)
@@ -198,19 +201,65 @@ export class TfGraphPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'tfGraphVisualizer',
+      VIEW_TYPE,
       'Terraform Dependency Graph',
       vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'webview', 'dist'))],
-      }
+      TfGraphPanel.webviewOptions(context)
     );
 
     const instance = new TfGraphPanel(panel, context);
     TfGraphPanel.current = instance;
     return instance.buildAndPost(rootDirectory);
+  }
+
+  private static webviewOptions(context: vscode.ExtensionContext): vscode.WebviewPanelOptions & vscode.WebviewOptions {
+    return {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+      localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'webview', 'dist'))],
+    };
+  }
+
+  /**
+   * Registers this extension as the reviver for any `tfGraphVisualizer`
+   * webview VS Code itself tries to restore (a window reload, or "Reopen
+   * Closed Editor") after the tab was closed with the panel still open.
+   * Without this, VS Code recreates the raw `WebviewPanel` on our behalf but
+   * never calls back into this class - so it sits on screen with none of the
+   * html/message-wiring `showOrReveal` above would normally set up, showing
+   * a permanently blank canvas until the user closes it and re-runs "Show
+   * Dependency Graph" manually. This wires the restored panel up exactly
+   * like a freshly created one, then rebuilds it against whatever root
+   * directory was last remembered for this workspace (see
+   * getRememberedRootDirectory) - or, if nothing's remembered yet, leaves it
+   * showing the same "nothing to show" error state a fresh panel with no
+   * root would.
+   */
+  static register(context: vscode.ExtensionContext): vscode.Disposable {
+    return vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
+      deserializeWebviewPanel: async (panel) => {
+        panel.webview.options = TfGraphPanel.webviewOptions(context);
+
+        // Only one graph panel is ever meant to exist at once (see the class
+        // doc comment) - defensive in case a live instance somehow already
+        // exists by the time VS Code restores another, so the two never race
+        // over the same workspaceState-backed root directory.
+        TfGraphPanel.current?.dispose();
+
+        const instance = new TfGraphPanel(panel, context);
+        TfGraphPanel.current = instance;
+
+        const root = getRememberedRootDirectory(context);
+        if (root) {
+          await instance.buildAndPost(root);
+        } else {
+          instance.post({
+            type: 'error',
+            message: 'No remembered Terraform root directory. Run "Terraform: Show Dependency Graph" to pick one.',
+          });
+        }
+      },
+    });
   }
 
   private async buildAndPost(rootDirectory: string): Promise<boolean> {

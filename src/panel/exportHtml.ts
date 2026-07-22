@@ -103,6 +103,19 @@ export function buildExportedHtml(input: ExportHtmlInput): string {
 ${rootVarsBlock}
     }
 ${webviewCss}
+
+    /* Exported-only override: a standalone file has no extension host to
+       act on the search box, "show variables/outputs/locals" or "Live"
+       checkboxes, or the "Fit to view"/"Export HTML" buttons - "Export
+       HTML"'s postMessage is just console-logged (see the acquireVsCodeApi
+       stub below), and "Live" mode has nothing to follow without a real VS
+       Code window. Hiding the whole toolbar leaves just the diagram, which
+       is what a "snapshot to share" export is for; .main-area's own
+       flex: 1 1 auto (theme.css) then fills the freed vertical space
+       automatically, no other layout change needed. */
+    .toolbar {
+      display: none;
+    }
   </style>
 </head>
 <body>

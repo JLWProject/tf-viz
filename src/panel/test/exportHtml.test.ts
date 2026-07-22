@@ -126,6 +126,11 @@ describe('buildExportedHtml', () => {
     assert.equal(roundTripped.nodes[0].name, '</script><script>alert(1)</script>');
   });
 
+  it('hides the toolbar (search box, checkboxes, buttons) so the exported file shows only the diagram', () => {
+    const html = buildExportedHtml(baseInput());
+    assert.match(html, /\.toolbar\s*\{\s*display:\s*none;\s*\}/);
+  });
+
   it('falls back to an empty toggle script and still parses as a coherent document when resolvedColors is empty', () => {
     const html = buildExportedHtml(baseInput({ resolvedColors: {} }));
     assert.ok(html.includes(':root {'));

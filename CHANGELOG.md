@@ -5,6 +5,22 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.20]
+
+- Fixed the graph panel showing up blank after being restored by VS Code
+  itself (a window reload, or "Reopen Closed Editor") rather than reopened
+  via the "Show Dependency Graph" command: no `WebviewPanelSerializer` was
+  ever registered for the panel's viewType, so a VS Code-restored panel got
+  a raw webview with none of the extension's html/message wiring, and sat
+  empty until manually closed and reopened. The extension now registers
+  itself as the panel's reviver and rebuilds a restored panel against the
+  last-remembered Terraform root directory automatically.
+- **Export HTML** now exports just the diagram: the search box, "show
+  variables/outputs/locals" and "Live" checkboxes, and the "Fit to
+  view"/"Export HTML" buttons no longer appear in the exported standalone
+  file (none of them do anything useful without a real VS Code host behind
+  them anyway).
+
 ## [0.0.18]
 
 - Added an opt-in "Live" toolbar toggle (off by default): follows the
