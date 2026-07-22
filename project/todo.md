@@ -236,3 +236,7 @@ listing needs its own clean history/issues/README.
   "post-hoc override, no re-flow" drag model)
 - Reset/clear manual node positions (currently no UI for this — only way
   back to auto-layout is clearing `workspaceState` manually)
+- Design a great logo/icon for the extension — current `images/icon.png` is a
+  placeholder (inline-SVG source at `images/icon-source.html`, screenshotted
+  with Playwright then downsized with `sips`); wants a real design pass
+  before/around the Marketplace listing goes live
