@@ -2,29 +2,35 @@
 //
 // Deliberately does NOT use (or reference) any official Azure/AWS/GCP icon
 // artwork or icon font - every glyph below is built from plain SVG
-// primitives (`circle`, `rect`, `path` with only simple straight
-// segments/arcs) depicting generic, uncopyrightable visual concepts - a
-// plain box for "resource", an eye for "data", a folder for "module", etc.
-// - not copied path data from any existing icon set. Styling is *in the
-// spirit* of popular minimalist stroke icon sets (24x24 viewBox, ~1.6 stroke
-// width, round line caps/joins, `fill="none" stroke="currentColor"`) but
-// hand-designed here.
+// primitives (`circle`, `rect`, `ellipse`, `line`, `path` with only simple
+// straight segments/arcs) depicting generic, uncopyrightable visual
+// concepts - a stacked cylinder for "database", a padlock silhouette for
+// "security", circles-joined-by-lines for "network", etc. - not copied path
+// data from any existing icon set. Styling is *in the spirit* of popular
+// minimalist stroke icon sets (24x24 viewBox, ~1.6 stroke width, round line
+// caps/joins, `fill="none" stroke="currentColor"`) but hand-designed here.
 import { svgEl } from './svg';
 
 /**
- * The top-left badge icon on every node card - keyed off a node's
- * *structural kind* (a resource, a data source, a module call, ...), not
- * what the resource actually is (a database vs. a network vs. ...; see
- * resourceCategory.ts's separate `ResourceCategory` for that - it now only
- * drives nodeDetail.ts's curated attribute line, not the icon).
- * `module`/`variable`/`output`/`locals` map straight from `GraphNode.kind`
- * (render.ts's `nodeIconCategory`); `resource`/`data` do too, UNLESS the
- * resource/data type matches a "just links two other resources together"
- * glue pattern (azurerm_..._association, aws_..._attachment, ...), in which
- * case `association` is used instead - see render.ts's
- * `isAssociationResourceType`.
+ * `network` through `generic` are inferred from a resource/data `type`
+ * string by resourceCategory.ts. `module`/`variable`/`output`/`locals` are
+ * used directly by render.ts for those node kinds - there's no `type`
+ * string on those blocks to infer a category from.
  */
-export type IconCategory = 'resource' | 'data' | 'association' | 'module' | 'variable' | 'output' | 'locals';
+export type IconCategory =
+  | 'network'
+  | 'compute'
+  | 'storage'
+  | 'database'
+  | 'security'
+  | 'container'
+  | 'messaging'
+  | 'monitoring'
+  | 'generic'
+  | 'module'
+  | 'variable'
+  | 'output'
+  | 'locals';
 
 const VIEWBOX_SIZE = 24;
 
@@ -51,30 +57,70 @@ function shape<K extends keyof SVGElementTagNameMap>(
 type GlyphBuilder = () => SVGElement[];
 
 const GLYPHS: Record<IconCategory, GlyphBuilder> = {
-  // Plain rounded box - a single concrete "thing", deliberately featureless
-  // so it reads as a neutral default rather than implying any particular
-  // resource shape (this used to be the `generic` fallback category's own
-  // glyph, before resourceCategory.ts's semantic categories were split out
-  // from node icons entirely - see icons.ts's own top comment).
-  resource: () => [shape('rect', { x: 5, y: 5, width: 14, height: 14, rx: 3 })],
-
-  // An eye: a data source only ever reads/looks up something that already
-  // exists, never creates it - the one deliberate visual departure from
-  // "box" shapes, so a `data` block is never mistaken for a `resource` at a
-  // glance even when their names/types are identical.
-  data: () => [
-    shape('path', { d: 'M3 12 C6 6, 18 6, 21 12 C18 18, 6 18, 3 12 Z' }),
-    shape('circle', { cx: 12, cy: 12, r: 2.6 }),
+  // Three nodes joined by lines (a small mesh/triangle) - the simplest
+  // possible "network" concept: things, connected.
+  network: () => [
+    shape('line', { x1: 6, y1: 7, x2: 18, y2: 7 }),
+    shape('line', { x1: 6, y1: 7, x2: 12, y2: 18 }),
+    shape('line', { x1: 18, y1: 7, x2: 12, y2: 18 }),
+    shape('circle', { cx: 6, cy: 7, r: 2.4 }),
+    shape('circle', { cx: 18, cy: 7, r: 2.4 }),
+    shape('circle', { cx: 12, cy: 18, r: 2.4 }),
   ],
 
-  // Two overlapping circles (a Venn pair) - "this joins two other things
-  // together", for glue/junction resource types that don't represent real
-  // standalone infrastructure (azurerm_..._association,
-  // aws_..._attachment, ...; see render.ts's isAssociationResourceType).
-  association: () => [
-    shape('circle', { cx: 9, cy: 12, r: 5.5 }),
-    shape('circle', { cx: 15, cy: 12, r: 5.5 }),
+  // A server rack: an outer body with two horizontal dividers.
+  compute: () => [
+    shape('rect', { x: 5, y: 3, width: 14, height: 18, rx: 2 }),
+    shape('line', { x1: 5, y1: 10, x2: 19, y2: 10 }),
+    shape('line', { x1: 5, y1: 16, x2: 19, y2: 16 }),
   ],
+
+  // A disk/drive: a body, a divider line near the top, and an activity dot.
+  storage: () => [
+    shape('rect', { x: 4, y: 5, width: 16, height: 14, rx: 2 }),
+    shape('line', { x1: 4, y1: 10, x2: 20, y2: 10 }),
+    shape('circle', { cx: 8, cy: 15, r: 1.3 }),
+  ],
+
+  // The classic stacked-cylinder database glyph: an ellipse "lid", two
+  // vertical sides, and a bottom + mid-body curve.
+  database: () => [
+    shape('ellipse', { cx: 12, cy: 6, rx: 7, ry: 3 }),
+    shape('path', { d: 'M5 6 V18 A7 3 0 0 0 19 18 V6' }),
+    shape('path', { d: 'M5 12 A7 3 0 0 0 19 12' }),
+  ],
+
+  // A padlock: an arc "shackle" over a rounded body, with a keyhole slot.
+  security: () => [
+    shape('path', { d: 'M8 11 V8 a4 4 0 0 1 8 0 V11' }),
+    shape('rect', { x: 5, y: 11, width: 14, height: 9, rx: 2 }),
+    shape('line', { x1: 12, y1: 14.5, x2: 12, y2: 17 }),
+  ],
+
+  // A package/box: a body with a lid seam and a center crease.
+  container: () => [
+    shape('rect', { x: 4, y: 6, width: 16, height: 14, rx: 1.5 }),
+    shape('line', { x1: 4, y1: 10, x2: 20, y2: 10 }),
+    shape('line', { x1: 12, y1: 10, x2: 12, y2: 20 }),
+  ],
+
+  // An envelope: a body with a "V" flap.
+  messaging: () => [
+    shape('rect', { x: 3, y: 6, width: 18, height: 13, rx: 2 }),
+    shape('path', { d: 'M3.5 7 L12 14 L20.5 7' }),
+  ],
+
+  // A small line chart on axes.
+  monitoring: () => [
+    shape('path', { d: 'M4 4 V20 H20' }),
+    shape('path', { d: 'M5 17 L10 10 L14 14 L20 6' }),
+  ],
+
+  // Plain rounded box outline - the deliberately-featureless fallback for
+  // provider-agnostic utility resources (random_pet, local_file,
+  // null_resource, time_sleep, tls_private_key, archive_file, ...) that
+  // don't fit any cloud-resource-shaped category.
+  generic: () => [shape('rect', { x: 5, y: 5, width: 14, height: 14, rx: 3 })],
 
   // A folder silhouette (body + top-left tab), all in one path.
   module: () => [

@@ -5,14 +5,6 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
-## [0.0.23]
-
-- Node card icons now show what a node *is* (resource, data source, module,
-  or a join/glue "association" resource like a role assignment or subnet-NSG
-  association) instead of what kind of cloud resource it represents — a
-  resource and a data source of the same type used to render the exact same
-  icon.
-
 ## [0.0.22]
 
 - New extension icon: a "tf" monogram replacing the old generic node-diamond

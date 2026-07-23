@@ -1,22 +1,4 @@
-/**
- * A semantic bucket for a resource/data `type` string - network, compute,
- * storage, etc. Used only by `inferResourceCategory` below and, in turn,
- * nodeDetail.ts's `CURATED_ATTRIBUTES` (which per-category attribute, if
- * any, is worth surfacing as a node's detail line). Deliberately unrelated
- * to icons.ts's `IconCategory` now - node icons key off *kind*
- * (resource/data/module/...), not this semantic category; the two used to
- * be the same type before that split.
- */
-export type ResourceCategory =
-  | 'network'
-  | 'compute'
-  | 'storage'
-  | 'database'
-  | 'security'
-  | 'container'
-  | 'messaging'
-  | 'monitoring'
-  | 'generic';
+import type { IconCategory } from './icons';
 
 /**
  * Ordered, most-specific/least-ambiguous-first keyword rules: `inferResourceCategory`
@@ -54,7 +36,7 @@ export type ResourceCategory =
  *     instance requests) are listed explicitly - neither collides with any
  *     database type's substring.
  */
-const RULES: ReadonlyArray<{ category: ResourceCategory; keywords: readonly string[] }> = [
+const RULES: ReadonlyArray<{ category: IconCategory; keywords: readonly string[] }> = [
   {
     category: 'network',
     keywords: [
@@ -129,16 +111,16 @@ const RULES: ReadonlyArray<{ category: ResourceCategory; keywords: readonly stri
 ];
 
 /**
- * Infers a `ResourceCategory` from a Terraform resource/data `type` string
- * (e.g. "azurerm_virtual_network", "aws_instance", "random_pet") using the
- * ordered substring keyword rules in `RULES` above. Falls back to `generic`
- * for anything unmatched - Terraform's provider-agnostic utility resources
- * (`random_pet`, `local_file`, `null_resource`, `time_sleep`,
+ * Infers a display `IconCategory` from a Terraform resource/data `type`
+ * string (e.g. "azurerm_virtual_network", "aws_instance", "random_pet")
+ * using the ordered substring keyword rules in `RULES` above. Falls back to
+ * `generic` for anything unmatched - Terraform's provider-agnostic utility
+ * resources (`random_pet`, `local_file`, `null_resource`, `time_sleep`,
  * `tls_private_key`, `archive_file`, etc.) have no sensible cloud-resource
  * category and should land here rather than being forced into one that
  * doesn't fit.
  */
-export function inferResourceCategory(type: string): ResourceCategory {
+export function inferResourceCategory(type: string): IconCategory {
   for (const rule of RULES) {
     if (rule.keywords.some((keyword) => type.includes(keyword))) {
       return rule.category;

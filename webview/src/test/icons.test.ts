@@ -13,9 +13,15 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>');
 import { buildIcon, type IconCategory } from '../icons';
 
 const ALL_CATEGORIES: readonly IconCategory[] = [
-  'resource',
-  'data',
-  'association',
+  'network',
+  'compute',
+  'storage',
+  'database',
+  'security',
+  'container',
+  'messaging',
+  'monitoring',
+  'generic',
   'module',
   'variable',
   'output',
@@ -23,8 +29,8 @@ const ALL_CATEGORIES: readonly IconCategory[] = [
 ];
 
 describe('buildIcon', () => {
-  it('covers exactly the 7 documented IconCategory values (fails loudly if the type gains/loses a member)', () => {
-    assert.equal(ALL_CATEGORIES.length, 7);
+  it('covers exactly the 13 documented IconCategory values (fails loudly if the type gains/loses a member)', () => {
+    assert.equal(ALL_CATEGORIES.length, 13);
   });
 
   for (const category of ALL_CATEGORIES) {
