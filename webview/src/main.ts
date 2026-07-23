@@ -100,11 +100,35 @@ exportButton.type = 'button';
 exportButton.className = 'toolbar-button';
 exportButton.textContent = 'Export HTML';
 
+// Hides the whole toolbar (search/toggles/buttons) so the graph can have the
+// full viewport - the toolbar itself disappears along with this button, so
+// getting it back goes through either `revealTab` (always-visible affordance,
+// see below) or the graph's own right-click menu (see the `contextmenu`
+// listener further down). Both call the same setToolbarHidden().
+const hideToolbarButton = document.createElement('button');
+hideToolbarButton.type = 'button';
+hideToolbarButton.className = 'toolbar-button';
+hideToolbarButton.textContent = 'Hide toolbar';
+hideToolbarButton.title = 'Hide the toolbar (right-click the graph, or the tab at the top, to bring it back)';
+
 toolbar.appendChild(searchInput);
 toolbar.appendChild(configToggleLabel);
 toolbar.appendChild(liveToggleLabel);
 toolbar.appendChild(fitButton);
 toolbar.appendChild(exportButton);
+toolbar.appendChild(hideToolbarButton);
+
+// Slim always-visible tab hanging off the top edge - the only way back once
+// the toolbar itself (and this button along with it) is hidden. Kept as a
+// permanent, if unobtrusive, affordance rather than relying solely on the
+// right-click menu below, since a hidden toolbar with no visible way back
+// would be a dead end for anyone who doesn't think to right-click.
+const revealTab = document.createElement('button');
+revealTab.type = 'button';
+revealTab.className = 'toolbar-reveal-tab';
+revealTab.textContent = '⌄';
+revealTab.title = 'Show toolbar';
+revealTab.setAttribute('aria-label', 'Show toolbar');
 
 // The graph canvas and the new Outputs/Locals info panel sit side by side,
 // below the toolbar - a docked side panel rather than a bottom drawer, since
@@ -126,7 +150,44 @@ mainArea.appendChild(infoPanel);
 
 app.appendChild(toolbar);
 app.appendChild(mainArea);
+app.appendChild(revealTab);
 document.body.appendChild(app);
+
+// Minimal single-item right-click menu (see the `contextmenu` listener under
+// "Wiring" below) - not a generic menu system, just a single toggle entry
+// whose label flips between "Hide"/"Show" depending on current state.
+// Positioned via inline left/top on open rather than CSS, since that
+// position is per-click (wherever the cursor was), not something a
+// stylesheet rule could express.
+const contextMenu = document.createElement('div');
+contextMenu.className = 'context-menu';
+contextMenu.hidden = true;
+const contextMenuToggleItem = document.createElement('button');
+contextMenuToggleItem.type = 'button';
+contextMenuToggleItem.className = 'context-menu-item';
+contextMenu.appendChild(contextMenuToggleItem);
+document.body.appendChild(contextMenu);
+
+// ---- Toolbar visibility ---------------------------------------------------
+// Pure webview UI preference (unlike the "Live" toggle, this never needs the
+// extension host to know about it), so it's persisted via vscode.setState -
+// VS Code tears down and recreates this webview's whole DOM whenever the
+// panel tab loses and regains focus, and setState/getState is exactly the
+// mechanism meant to survive that, distinct from graphPanel.ts's
+// workspaceState (which is keyed per root directory, not per this kind of
+// display preference).
+interface PersistedUiState {
+  toolbarHidden?: boolean;
+}
+
+function setToolbarHidden(hidden: boolean): void {
+  toolbar.hidden = hidden;
+  revealTab.hidden = !hidden;
+  contextMenuToggleItem.textContent = hidden ? 'Show toolbar' : 'Hide toolbar';
+  vscode.setState?.({ ...(vscode.getState?.() as PersistedUiState), toolbarHidden: hidden });
+}
+
+setToolbarHidden(((vscode.getState?.() as PersistedUiState | undefined)?.toolbarHidden) ?? false);
 
 // ---- State ------------------------------------------------------------
 
@@ -487,6 +548,44 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
   positionOverrides = new Map(Object.entries(message.positions ?? {}));
   rerender();
 });
+
+hideToolbarButton.addEventListener('click', () => setToolbarHidden(true));
+revealTab.addEventListener('click', () => setToolbarHidden(false));
+
+function closeContextMenu(): void {
+  contextMenu.hidden = true;
+}
+
+contextMenuToggleItem.addEventListener('click', () => {
+  setToolbarHidden(!toolbar.hidden);
+  closeContextMenu();
+});
+
+// Right-click anywhere over the graph/info-panel area (deliberately not over
+// `toolbar` itself, which already has its own `hideToolbarButton` and whose
+// search input still needs its native right-click menu for cut/copy/paste)
+// pops the single-item toggle menu above at the cursor. `mainArea` also
+// covers panzoom.ts's own pan handling on the SVG - that's pointerdown-driven
+// and unaffected by this, `contextmenu` only ever fires on the eventual
+// mouseup/right-click gesture itself.
+mainArea.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+  contextMenuToggleItem.textContent = toolbar.hidden ? 'Show toolbar' : 'Hide toolbar';
+  contextMenu.style.left = `${event.clientX}px`;
+  contextMenu.style.top = `${event.clientY}px`;
+  contextMenu.hidden = false;
+});
+window.addEventListener('click', (event) => {
+  if (!contextMenu.hidden && !contextMenu.contains(event.target as Node)) {
+    closeContextMenu();
+  }
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeContextMenu();
+  }
+});
+window.addEventListener('blur', closeContextMenu);
 
 searchInput.addEventListener('input', () => rerender());
 configToggleInput.addEventListener('change', () => rerender());

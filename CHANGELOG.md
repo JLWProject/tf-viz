@@ -5,6 +5,13 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.21]
+
+- Added a "Hide toolbar" button so the graph can take up the full panel.
+  Once hidden, a small tab at the top edge brings it back, and right-clicking
+  the graph or info panel also offers a "Show toolbar"/"Hide toolbar" option.
+  The choice is remembered across the panel being hidden/reloaded.
+
 ## [0.0.20]
 
 - Fixed the graph panel showing up blank after being restored by VS Code

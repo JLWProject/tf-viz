@@ -107,6 +107,7 @@ body {
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
+  position: relative; /* anchors .toolbar-reveal-tab below */
 }
 
 /* ---- Toolbar ---------------------------------------------------------- */
@@ -118,6 +119,16 @@ body {
   padding: 6px 10px;
   border-bottom: 1px solid var(--vscode-panel-border);
   flex: 0 0 auto;
+}
+
+/* Without this, the `display: flex` above wins out over the UA stylesheet's
+   own `[hidden] { display: none }` rule (same-origin author styles beat the
+   user-agent default regardless of the tied specificity) - the toolbar's
+   `hidden` property (see main.ts's setToolbarHidden) would flip but the
+   element would stay visibly laid out. Same fix already applied to
+   `.info-panel[hidden]` below, for the same reason. */
+.toolbar[hidden] {
+  display: none;
 }
 
 .toolbar-search {
@@ -182,6 +193,75 @@ body {
 
 .toolbar-button:focus-visible {
   outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* Slim tab hanging off the top edge, the only way to bring the toolbar back
+   once it's hidden (see main.ts's setToolbarHidden) - shown/hidden opposite
+   the toolbar itself, never both at once. */
+.toolbar-reveal-tab {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  padding: 1px 10px 2px;
+  line-height: 1.2;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.toolbar-reveal-tab:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+.toolbar-reveal-tab:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* ---- Right-click "hide/show toolbar" menu -------------------------------
+   Single-item menu (see main.ts's `contextmenu` listener) - `left`/`top` are
+   set inline per-open at the cursor position, not here. */
+
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  background-color: var(--vscode-menu-background, var(--vscode-editor-background));
+  color: var(--vscode-menu-foreground, var(--vscode-editor-foreground));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+}
+
+.context-menu[hidden] {
+  display: none;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+  background-color: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground, inherit);
+  outline: none;
 }
 
 /* ---- Main area (graph canvas + info panel) ------------------------------
