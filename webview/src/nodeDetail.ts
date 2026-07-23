@@ -20,7 +20,7 @@
 // one arbitrarily wouldn't be meaningful the way a resource's own config is.
 import type { GraphNode } from '../../src/graph/graphModel';
 import { inferResourceCategory } from './resourceCategory';
-import type { IconCategory } from './icons';
+import type { ResourceCategory } from './resourceCategory';
 
 /**
  * Curated, ordered attribute names per resource category - the first name in
@@ -31,7 +31,7 @@ import type { IconCategory } from './icons';
  * deliberately omitted so `pickNodeDetail` never forces a detail line where
  * there's no sensible common attribute.
  */
-const CURATED_ATTRIBUTES: Partial<Record<IconCategory, readonly string[]>> = {
+const CURATED_ATTRIBUTES: Partial<Record<ResourceCategory, readonly string[]>> = {
   network: ['address_space', 'address_prefixes', 'cidr_block', 'cidr_blocks'],
   compute: ['vm_size', 'instance_type', 'size', 'sku_name'],
   storage: ['account_tier', 'account_replication_type', 'sku'],

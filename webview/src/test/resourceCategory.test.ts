@@ -1,8 +1,8 @@
 import * as assert from 'node:assert/strict';
 import { inferResourceCategory } from '../resourceCategory';
-import type { IconCategory } from '../icons';
+import type { ResourceCategory } from '../resourceCategory';
 
-function expectCategory(type: string, expected: IconCategory): void {
+function expectCategory(type: string, expected: ResourceCategory): void {
   assert.equal(
     inferResourceCategory(type),
     expected,

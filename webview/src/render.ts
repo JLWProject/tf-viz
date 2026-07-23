@@ -28,7 +28,6 @@ import {
 import type { ChipDatum, PositionedCluster, PositionedEdge, PositionedGraph, PositionedNode } from './layout';
 import { buildIcon } from './icons';
 import type { IconCategory } from './icons';
-import { inferResourceCategory } from './resourceCategory';
 import { svgEl } from './svg';
 
 /** Rendered pixel size of every node's icon glyph - see buildNode. */
@@ -294,14 +293,30 @@ function buildEdge(edge: PositionedEdge): SVGPathElement {
 }
 
 /**
- * `resource`/`data` nodes infer their icon category from the resource
- * `type` string; every other kind (`module`/`variable`/`output`/`locals`)
- * always draws its own fixed icon directly - there's no `type` string on
- * those blocks to infer a category from.
+ * Terraform's own "just links two other resources together" glue types -
+ * these don't represent standalone infrastructure the way a normal
+ * resource/data source does, so they get their own `association` icon
+ * (see icons.ts) instead of the plain resource/data one. Substring match
+ * against the resource `type`, same style as resourceCategory.ts's RULES -
+ * covers e.g. azurerm_subnet_network_security_group_association,
+ * aws_route_table_association, aws_iam_role_policy_attachment,
+ * azurerm_role_assignment, google_project_iam_binding.
+ */
+const ASSOCIATION_TYPE_KEYWORDS = ['_association', '_attachment', '_assignment', '_binding'];
+
+function isAssociationResourceType(type: string): boolean {
+  return ASSOCIATION_TYPE_KEYWORDS.some((keyword) => type.includes(keyword));
+}
+
+/**
+ * Every node kind maps straight to its own same-named `IconCategory` -
+ * `module`/`variable`/`output`/`locals` always, and `resource`/`data` too,
+ * UNLESS the resource/data `type` matches the glue-resource pattern above,
+ * in which case `association` is used instead.
  */
 function nodeIconCategory(node: PositionedNode): IconCategory {
-  if (node.kind === 'resource' || node.kind === 'data') {
-    return inferResourceCategory(node.type);
+  if ((node.kind === 'resource' || node.kind === 'data') && isAssociationResourceType(node.type)) {
+    return 'association';
   }
   return node.kind;
 }
