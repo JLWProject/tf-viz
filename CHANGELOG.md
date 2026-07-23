@@ -5,6 +5,13 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.25]
+
+- No functional changes from 0.0.22 — re-baselined the version number after
+  reverting a 0.0.23 experiment (node icons keyed off resource/data/module
+  kind instead of category) that didn't land well. This is the new build
+  base going forward.
+
 ## [0.0.22]
 
 - New extension icon: a "tf" monogram replacing the old generic node-diamond

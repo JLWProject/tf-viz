@@ -2,7 +2,7 @@
   "name": "tf-graph-visualizer",
   "displayName": "Terraform Graph Visualizer",
   "description": "Static, offline dependency-graph visualizer for Terraform configuration directories. Click a node to jump straight to its source.",
-  "version": "0.0.22",
+  "version": "0.0.25",
   "private": true,
   "publisher": "JordanWalker",
   "license": "SEE LICENSE IN LICENSE",
