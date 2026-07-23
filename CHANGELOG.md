@@ -5,6 +5,27 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.28]
+
+- Removed the redundant edge that used to land on a module cluster's own
+  backdrop alongside the real one pointing at the card inside it — every
+  arrow now points at an actual card on both ends, never at the cluster
+  chrome itself.
+
+## [0.0.27]
+
+- Module clusters are clickable again — jumps straight to the
+  `module "..." {...}` block's own source location, the same thing the
+  module card (removed in 0.0.26) used to do.
+
+## [0.0.26]
+
+- Module calls no longer draw a separate card next to their own cluster —
+  it duplicated the cluster's own "MODULE.*" label right next to it.
+  Dependency edges that used to point at that card now arrive directly at
+  the module's cluster boundary instead, and the cluster itself now carries
+  the module accent color that the card used to.
+
 ## [0.0.25]
 
 - No functional changes from 0.0.22 — re-baselined the version number after

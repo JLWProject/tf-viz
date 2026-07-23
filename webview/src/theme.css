@@ -397,6 +397,36 @@ body {
   stroke-opacity: 0.55;
 }
 
+/* A `module.*` cluster (render.ts's buildCluster - everything except the
+   root scope) now carries the module accent itself, since the module
+   call's own card (which used to be the only thing colored this way) is
+   never drawn anymore - see render.ts's renderGraph skipping `kind ===
+   'module'` nodes, and layout.ts's computeLayout routing edges straight to
+   this rect's boundary instead of that now-absent card. Reuses
+   `--tf-accent-module` (the same token `.node-kind-module` already
+   resolved against) rather than a hardcoded color, so it tracks whatever
+   the current theme resolves that token to, same as everywhere else. */
+.cluster-module.cluster .cluster-rect {
+  fill: var(--tf-accent-module);
+  fill-opacity: 0.08;
+  stroke: var(--tf-accent-module);
+  stroke-opacity: 0.5;
+}
+
+/* Clickable (render.ts's buildCluster - jumps to the `module "..." {...}`
+   block's own source location, the same thing the now-removed module card
+   used to do) - root has no source location of its own and stays
+   non-interactive, so this and the hover rule below are scoped to
+   `.cluster-module` only. */
+.cluster-module {
+  cursor: pointer;
+}
+
+.cluster-module:hover .cluster-rect {
+  fill-opacity: 0.14;
+  stroke-opacity: 0.75;
+}
+
 .cluster-label-dot {
   fill: var(--tf-accent-module);
   opacity: 0.65;

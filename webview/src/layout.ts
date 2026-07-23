@@ -448,13 +448,18 @@ export function computeLayout(
   >();
 
   for (const node of model.nodes) {
-    const { width, height, nameLines, typeLines, detailLines, chipRows } = estimateNodeSize(
-      node,
-      measureName,
-      measureType,
-      measureDetail,
-      chipContext
-    );
+    // A `module` node never gets its own card anymore (render.ts's
+    // buildNode skips it entirely) - its own cluster (keyed by this node's
+    // *address*, since that's exactly the `.module` value every node
+    // *inside* the module call carries - see clusterId's call sites) is
+    // what visually represents it now, so there's no text to wrap/measure
+    // and no card footprint to reserve; a zero-size dagre node keeps it
+    // real enough for edge routing/rank assignment (same trick already used
+    // for the cluster placeholder nodes above) without taking up space.
+    const { width, height, nameLines, typeLines, detailLines, chipRows } =
+      node.kind === 'module'
+        ? { width: 0, height: 0, nameLines: [], typeLines: [], detailLines: [], chipRows: [] }
+        : estimateNodeSize(node, measureName, measureType, measureDetail, chipContext);
     g.setNode(node.address, { width, height });
     g.setParent(node.address, clusterId(node.module));
     nodeExtras.set(node.address, { nameLines, typeLines, detailLines, chipRows });
@@ -515,39 +520,6 @@ export function computeLayout(
   const finalPositionByAddress = new Map(nodes.map((n) => [n.address, { x: n.x, y: n.y }]));
   const overriddenAddresses = new Set(options?.positionOverrides?.keys() ?? []);
 
-  const edges: PositionedEdge[] = g.edges().map((e) => {
-    const label = g.edge(e);
-    // `e.v`/`e.w` are dagre's (source, dependent) - reversed back here to
-    // (dependent, source) so PositionedEdge.from/.to keep meaning exactly
-    // what GraphEdge.from/.to always meant ("from references to"), for
-    // any consumer that relies on that semantic (e.g. tooltips, a future
-    // click-to-navigate-via-edge feature). Only the *visual* `points`
-    // (and therefore the rendered arrow direction, via render.ts's
-    // marker-end on the path built from these points) actually flow
-    // source-to-dependent top-to-bottom now - render.ts's buildEdge()
-    // only ever reads `.points`, never `.from`/`.to`, so this reversal is
-    // entirely internal to this function.
-    //
-    // If either endpoint was manually dragged, dagre's own multi-point
-    // routing assumed the pre-move position and is no longer meaningful -
-    // replaced here with a simple straight line directly between the two
-    // final (possibly-overridden) node centers instead. Edges where neither
-    // endpoint moved keep dagre's original routing untouched.
-    const involvesOverride = overriddenAddresses.has(e.v) || overriddenAddresses.has(e.w);
-    const sourcePos = finalPositionByAddress.get(e.v);
-    const dependentPos = finalPositionByAddress.get(e.w);
-    const points =
-      involvesOverride && sourcePos && dependentPos
-        ? [sourcePos, dependentPos]
-        : (label.points ?? []).map((p) => ({ x: p.x, y: p.y }));
-
-    return {
-      from: e.w,
-      to: e.v,
-      points,
-    };
-  });
-
   const clusters: PositionedCluster[] = [];
   for (const moduleLabel of modules) {
     const label = g.node(clusterId(moduleLabel));
@@ -562,6 +534,50 @@ export function computeLayout(
       height: label.height ?? 0,
     });
   }
+
+  // A `module` node has no card of its own anymore (see the node-
+  // registration loop above), and its own cluster already makes "a module
+  // is here" obvious on its own - an edge touching one is dropped entirely
+  // here rather than drawn against the cluster backdrop, so every arrow
+  // that *does* render always points at an actual card on both ends, never
+  // at structural chrome.
+  const moduleNodeAddresses = new Set(model.nodes.filter((n) => n.kind === 'module').map((n) => n.address));
+
+  const edges: PositionedEdge[] = g
+    .edges()
+    .filter((e) => !moduleNodeAddresses.has(e.v) && !moduleNodeAddresses.has(e.w))
+    .map((e) => {
+      const label = g.edge(e);
+      // `e.v`/`e.w` are dagre's (source, dependent) - reversed back here to
+      // (dependent, source) so PositionedEdge.from/.to keep meaning exactly
+      // what GraphEdge.from/.to always meant ("from references to"), for
+      // any consumer that relies on that semantic (e.g. tooltips, a future
+      // click-to-navigate-via-edge feature). Only the *visual* `points`
+      // (and therefore the rendered arrow direction, via render.ts's
+      // marker-end on the path built from these points) actually flow
+      // source-to-dependent top-to-bottom now - render.ts's buildEdge()
+      // only ever reads `.points`, never `.from`/`.to`, so this reversal is
+      // entirely internal to this function.
+      //
+      // If either endpoint was manually dragged, dagre's own multi-point
+      // routing assumed the pre-move position and is no longer meaningful -
+      // replaced here with a simple straight line directly between the two
+      // final (possibly-overridden) node centers instead. Edges where
+      // neither endpoint moved keep dagre's original routing untouched.
+      const involvesOverride = overriddenAddresses.has(e.v) || overriddenAddresses.has(e.w);
+      const sourcePos = finalPositionByAddress.get(e.v);
+      const dependentPos = finalPositionByAddress.get(e.w);
+      const points =
+        involvesOverride && sourcePos && dependentPos
+          ? [sourcePos, dependentPos]
+          : (label.points ?? []).map((p) => ({ x: p.x, y: p.y }));
+
+      return {
+        from: e.w,
+        to: e.v,
+        points,
+      };
+    });
 
   const graphLabel = g.graph();
 

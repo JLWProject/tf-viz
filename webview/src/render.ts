@@ -198,8 +198,35 @@ function buildDefs(): SVGDefsElement {
   return defs;
 }
 
-function buildCluster(cluster: PositionedCluster): SVGGElement {
-  const group = svgEl('g', { class: 'cluster' });
+/**
+ * `cluster.module === 'root'` (graphModel.ts's own constant for the
+ * top-level scope - see computeLayout's `moduleLabel` comment) is the one
+ * cluster that isn't really "a module" from a user's perspective - the rest
+ * get the `cluster-module` class so theme.css can accent them with
+ * `--tf-accent-module`, now that the module node's own card (which used to
+ * carry that color) is never drawn - see render.ts's `renderGraph` skipping
+ * `kind === 'module'` nodes entirely.
+ *
+ * That same skipped card used to be what you'd click to jump to the
+ * `module "..." { ... }` block's own source location - restored here
+ * instead: `cluster.module` (e.g. `module.storage["a"]`) is exactly that
+ * module node's own address (every node *inside* the module carries this
+ * same string as its `.module` field - see layout.ts's computeLayout), a
+ * valid `onNodeClick` target with no extra lookup needed. Root has no
+ * module block/source location of its own, so it's left non-interactive.
+ */
+function buildCluster(cluster: PositionedCluster, onNodeClick: (address: string) => void): SVGGElement {
+  const isModuleCluster = cluster.module !== 'root';
+  const group = svgEl('g', { class: isModuleCluster ? 'cluster cluster-module' : 'cluster' });
+  if (isModuleCluster) {
+    // Same reason buildNode's own onPointerDown stops propagation: without
+    // this, panzoom.ts's svgRoot-level pointerdown listener sees the event
+    // first, calls setPointerCapture on svgRoot, and the click this group
+    // is listening for below never actually fires (its compatibility mouse
+    // events get redirected to the capturing element instead).
+    group.addEventListener('pointerdown', (event) => event.stopPropagation());
+    group.addEventListener('click', () => onNodeClick(cluster.module));
+  }
   group.appendChild(
     svgEl('rect', {
       x: cluster.x,
@@ -721,7 +748,7 @@ export function renderGraph(
 
   const clustersGroup = svgEl('g', { class: 'clusters' });
   for (const cluster of positioned.clusters) {
-    clustersGroup.appendChild(buildCluster(cluster));
+    clustersGroup.appendChild(buildCluster(cluster, onNodeClick));
   }
   viewport.appendChild(clustersGroup);
 
@@ -733,6 +760,14 @@ export function renderGraph(
 
   const nodesGroup = svgEl('g', { class: 'nodes' });
   for (const node of positioned.nodes) {
+    // A `module` node never gets a card of its own anymore - its own
+    // cluster (see buildCluster's `cluster-module` class) carries that
+    // identity now, and layout.ts's computeLayout already redirects any
+    // edge that would have pointed at this node to that cluster's boundary
+    // instead, so skipping it here leaves nothing dangling.
+    if (node.kind === 'module') {
+      continue;
+    }
     nodesGroup.appendChild(buildNode(node, onNodeClick, onNodeDragEnd));
   }
   viewport.appendChild(nodesGroup);
