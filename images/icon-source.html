@@ -4,13 +4,17 @@
   Renders the 128x128 Marketplace icon as inline SVG so Playwright can
   screenshot it at exact pixel size (no ImageMagick/rsvg-convert available
   in this environment). Regenerate after editing: screenshot the #icon
-  element at a 128x128 viewport, deviceScaleFactor 1.
+  element at a 128x128 viewport, deviceScaleFactor 4 (renders at 512x512),
+  then downsize to 128x128 with `sips` for anti-aliased edges.
 
-  Design: a small top-down dependency chain (three circle nodes, curved
-  connectors) on a rounded-square indigo/violet gradient - deliberately
-  echoes the graph webview's own node-and-curved-edge visual language
-  (see webview/src/render.ts, webview/src/theme.css) rather than any
-  official Terraform/HashiCorp mark, so there's no trademark concern.
+  Design: a bold "tf" monogram built from rounded bars (not a text glyph,
+  so the shape never depends on which font happens to be installed wherever
+  this gets screenshotted) on a dark rounded-square ground, with one small
+  graph-node accent hanging off the f's crossbar - keeps a trace of the
+  webview's own node-and-curved-edge visual language (see render.ts/
+  theme.css) without the letterforms competing with a busier network
+  illustration. No official Terraform/HashiCorp mark used, so no trademark
+  concern.
 -->
 <html lang="en">
   <head>
@@ -26,44 +30,44 @@
   <body>
     <svg id="icon" width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#6d5ef0" />
-          <stop offset="1" stop-color="#3a2e8f" />
+        <linearGradient id="letters" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#a99bff" />
+          <stop offset="1" stop-color="#5ad2e6" />
         </linearGradient>
-        <linearGradient id="edgeGrad" x1="0" y1="0" x2="0" y2="128" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#e6e1ff" />
-          <stop offset="1" stop-color="#b9adf7" />
-        </linearGradient>
-        <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
-          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1c1450" flood-opacity="0.45" />
-        </filter>
       </defs>
 
-      <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)" />
-      <rect x="4.5" y="4.5" width="119" height="119" rx="25.5" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+      <rect x="4" y="4" width="120" height="120" rx="27" fill="#1c1730" />
+      <rect x="4.5" y="4.5" width="119" height="119" rx="26.5" fill="none" stroke="#ffffff" stroke-opacity="0.10" />
 
-      <!-- curved connectors, drawn first so nodes sit on top -->
-      <g fill="none" stroke="url(#edgeGrad)" stroke-width="4" stroke-linecap="round">
-        <path d="M 64 40 C 64 54, 40 54, 40 68" />
-        <path d="M 64 40 C 64 54, 88 54, 88 68" />
-        <path d="M 40 68 C 40 82, 64 82, 64 96" />
-        <path d="M 88 68 C 88 82, 64 82, 64 96" />
-      </g>
+      <!-- "t": stem + crossbar -->
+      <g fill="url(#letters)">
+        <rect x="34" y="26" width="12" height="58" rx="6" />
+        <rect x="24" y="38" width="32" height="10" rx="5" />
 
-      <!-- three nodes: one source at top, two mid, one sink at bottom -->
-      <g filter="url(#softShadow)">
-        <circle cx="64" cy="32" r="12" fill="#ffffff" />
-        <circle cx="36" cy="68" r="10" fill="#ffffff" fill-opacity="0.96" />
-        <circle cx="92" cy="68" r="10" fill="#ffffff" fill-opacity="0.96" />
-        <circle cx="64" cy="100" r="12" fill="#ffffff" />
+        <!-- "f": stem + crossbar, filled bars like the t above -->
+        <rect x="68" y="34" width="12" height="50" rx="6" />
+        <rect x="64" y="50" width="28" height="10" rx="5" />
       </g>
+      <!-- f's ascender hook drawn as a curved stroke (not a flat bar), so it
+           reads as a lowercase hood rather than a capital F's flush top -->
+      <path
+        d="M 74 34 C 74 20, 80 16, 92 18"
+        fill="none"
+        stroke="url(#letters)"
+        stroke-width="12"
+        stroke-linecap="round"
+      />
 
-      <g fill="#4b3fc4">
-        <circle cx="64" cy="32" r="4.5" />
-        <circle cx="36" cy="68" r="3.6" />
-        <circle cx="92" cy="68" r="3.6" />
-        <circle cx="64" cy="100" r="4.5" />
-      </g>
+      <!-- single graph-node accent, tailing off the f's crossbar -->
+      <circle cx="97" cy="94" r="8" fill="#5ad2e6" />
+      <path
+        d="M 92 74 C 92 84, 92 88, 97 89"
+        fill="none"
+        stroke="#5ad2e6"
+        stroke-width="3.5"
+        stroke-linecap="round"
+        opacity="0.85"
+      />
     </svg>
   </body>
 </html>
