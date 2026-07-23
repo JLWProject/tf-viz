@@ -5,6 +5,13 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.22]
+
+- New extension icon: a "tf" monogram replacing the old generic node-diamond
+  placeholder.
+- The toolbar now starts hidden by default, so the graph gets the full panel
+  on first open — bring it back via the tab at the top edge or a right-click.
+
 ## [0.0.21]
 
 - Added a "Hide toolbar" button so the graph can take up the full panel.

@@ -187,7 +187,10 @@ function setToolbarHidden(hidden: boolean): void {
   vscode.setState?.({ ...(vscode.getState?.() as PersistedUiState), toolbarHidden: hidden });
 }
 
-setToolbarHidden(((vscode.getState?.() as PersistedUiState | undefined)?.toolbarHidden) ?? false);
+// Hidden by default (until a persisted preference says otherwise) so the
+// graph gets the full panel from first open - the reveal tab/right-click
+// menu above are exactly what make that a safe default rather than a trap.
+setToolbarHidden(((vscode.getState?.() as PersistedUiState | undefined)?.toolbarHidden) ?? true);
 
 // ---- State ------------------------------------------------------------
 
