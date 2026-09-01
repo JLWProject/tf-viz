@@ -11,6 +11,8 @@
           "type": "azurerm_storage_account",
           "name": "set_example[\"web\"]",
           "address": "azurerm_storage_account.set_example[\"web\"]",
+          "baseAddress": "azurerm_storage_account.set_example",
+          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
             "startLine": 1,
@@ -83,6 +85,8 @@
           "type": "azurerm_storage_account",
           "name": "set_example[\"db\"]",
           "address": "azurerm_storage_account.set_example[\"db\"]",
+          "baseAddress": "azurerm_storage_account.set_example",
+          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_set/main.tf",
             "startLine": 1,

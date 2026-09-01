@@ -466,7 +466,8 @@ function transformDeltaByInverseMatrix(matrix: DOMMatrix, dx: number, dy: number
 function buildNode(
   node: PositionedNode,
   onNodeClick: (address: string) => void,
-  onNodeDragEnd: (address: string, x: number, y: number) => void
+  onNodeDragEnd: (address: string, x: number, y: number) => void,
+  onToggleGroup: (baseAddress: string) => void
 ): SVGGElement {
   // `node` is never a `variable`/`output`/`locals` kind as of this pass (see
   // filterModel() in main.ts - those kinds are stripped out of the graph
@@ -474,14 +475,40 @@ function buildNode(
   // kinds" branch here is now permanently dead and has been removed;
   // `kindClass` alone is enough.
   const group = svgEl('g', {
-    class: `node ${kindClass(node.kind)}`,
+    class: `node ${kindClass(node.kind)}${node.isInstanceSummary ? ' node-instance-summary' : ''}`,
     'data-address': node.address,
     transform: `translate(${node.x - node.width / 2}, ${node.y - node.height / 2})`,
   });
 
   const title = svgEl('title');
-  title.textContent = node.address;
+  title.textContent = node.isInstanceSummary
+    ? `${node.address} (${node.instanceCount} instances - click the badge to expand)`
+    : node.address;
   group.appendChild(title);
+
+  // A collapsed instance-group summary card (see instanceGroups.ts) gets a
+  // "stacked cards" affordance - two smaller offset rects peeking out from
+  // behind the front card, reading as "more than one of these" at a glance
+  // even before the eye reaches the ×N in its name/the corner badge below.
+  // Drawn directly on `group` (not inside `.node-card`, see below) so they
+  // sit fully behind that card's own background/shadow, not just behind its
+  // content.
+  if (node.isInstanceSummary) {
+    const stackOffsets = [8, 4];
+    for (const offset of stackOffsets) {
+      group.appendChild(
+        svgEl('rect', {
+          x: offset,
+          y: offset,
+          width: node.width,
+          height: node.height,
+          rx: cardCornerRadius(node.height),
+          ry: cardCornerRadius(node.height),
+          class: 'node-stack-shadow',
+        })
+      );
+    }
+  }
 
   // Everything visual (card background, badge, icon, text) lives inside its
   // own inner group rather than directly on `group` above, specifically so
@@ -539,6 +566,62 @@ function buildNode(
   icon.setAttribute('x', String(ICON_BADGE_INSET + (ICON_BADGE_SIZE - ICON_SIZE) / 2));
   icon.setAttribute('y', String(ICON_BADGE_INSET + (ICON_BADGE_SIZE - ICON_SIZE) / 2));
   card.appendChild(icon);
+
+  // Instance-group expand/collapse toggle (see instanceGroups.ts) - mirrors
+  // the icon badge's own inset/size in the opposite (top-right) corner, only
+  // ever present on a node that's part of a for_each/count instance group:
+  // a collapsed summary card ("▸", click expands the whole group back to its
+  // individual instances) or any one of an already-expanded group's own
+  // individual instance cards ("▾", click re-collapses that whole group back
+  // to one summary card - no single designated "header" instance needed,
+  // any member works since they all share the same baseAddress). A separate
+  // click target from the card body's own whole-card click-to-navigate/drag
+  // handling below - its own pointerdown stops propagation before that outer
+  // handling ever sees the event, same technique buildCluster() already uses
+  // for its own click listener.
+  if (node.baseAddress) {
+    const toggleBadge = svgEl('g', { class: 'node-group-toggle' });
+    const toggleX = node.width - ICON_BADGE_INSET - ICON_BADGE_SIZE;
+    const toggleY = ICON_BADGE_INSET;
+    toggleBadge.appendChild(
+      svgEl('rect', {
+        x: toggleX,
+        y: toggleY,
+        width: ICON_BADGE_SIZE,
+        height: ICON_BADGE_SIZE,
+        rx: ICON_BADGE_RADIUS,
+        ry: ICON_BADGE_RADIUS,
+        class: 'node-icon-badge node-group-toggle-badge',
+      })
+    );
+    // A small filled triangle drawn as a vector <polygon>, not a Unicode
+    // "▸"/"▾" text glyph - measured against a real render (see
+    // instanceGroups.ts's plan notes), a text glyph shrank to an unreadable
+    // few-pixel smudge at the zoom levels a wide expanded group's fit-to-view
+    // lands on, while the icon badge right next to it (buildIcon's own
+    // stroke-path glyphs) stayed crisp at the same scale - vector geometry
+    // scales cleanly where a tiny font glyph's actual ink does not. Matches
+    // this codebase's own established convention (icons.ts) of drawing every
+    // other glyph as paths, never as rendered font characters.
+    const cx = toggleX + ICON_BADGE_SIZE / 2;
+    const cy = toggleY + ICON_BADGE_SIZE / 2;
+    const points = node.isInstanceSummary
+      ? `${cx - 3},${cy - 5} ${cx - 3},${cy + 5} ${cx + 4},${cy}` // "▸" expand
+      : `${cx - 5},${cy - 3} ${cx + 5},${cy - 3} ${cx},${cy + 4}`; // "▾" collapse
+    toggleBadge.appendChild(svgEl('polygon', { points, class: 'node-group-toggle-glyph' }));
+    const toggleTitle = svgEl('title');
+    toggleTitle.textContent = node.isInstanceSummary
+      ? `Expand ${node.instanceCount} instances`
+      : 'Collapse instances';
+    toggleBadge.appendChild(toggleTitle);
+
+    toggleBadge.addEventListener('pointerdown', (event) => event.stopPropagation());
+    toggleBadge.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onToggleGroup(node.baseAddress!);
+    });
+    card.appendChild(toggleBadge);
+  }
 
   const textCenterX = node.width / 2;
 
@@ -723,13 +806,16 @@ function buildNode(
  * (replacing any previous contents). `onNodeClick` fires with a node's full
  * address on a plain click; `onNodeDragEnd` fires instead (never both) with
  * the node's new world-space x/y once a drag that moved past the click
- * threshold completes.
+ * threshold completes. `onToggleGroup` fires with a node's `baseAddress`
+ * when its expand/collapse badge (see buildNode) is clicked - never fires
+ * `onNodeClick`/`onNodeDragEnd` for that same interaction.
  */
 export function renderGraph(
   container: HTMLElement,
   positioned: PositionedGraph,
   onNodeClick: (address: string) => void,
-  onNodeDragEnd: (address: string, x: number, y: number) => void
+  onNodeDragEnd: (address: string, x: number, y: number) => void,
+  onToggleGroup: (baseAddress: string) => void
 ): void {
   container.innerHTML = '';
 
@@ -768,7 +854,7 @@ export function renderGraph(
     if (node.kind === 'module') {
       continue;
     }
-    nodesGroup.appendChild(buildNode(node, onNodeClick, onNodeDragEnd));
+    nodesGroup.appendChild(buildNode(node, onNodeClick, onNodeDragEnd, onToggleGroup));
   }
   viewport.appendChild(nodesGroup);
 

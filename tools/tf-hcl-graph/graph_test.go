@@ -226,6 +226,9 @@ func TestForEachAndCountRawTraversals(t *testing.T) {
 	// exactly the way Terraform itself (and a real reference to one specific
 	// instance) would: `type.name["key"]` - see instances.go/traversal.go.
 	eachA := blockByAddress(t, root, `azurerm_storage_account.each_example["a"]`)
+	if eachA.BaseAddress != "azurerm_storage_account.each_example" || eachA.InstanceCount != 2 {
+		t.Errorf(`expected each_example["a"]'s BaseAddress/InstanceCount to be "azurerm_storage_account.each_example"/2, got %q/%d`, eachA.BaseAddress, eachA.InstanceCount)
+	}
 	nameAttrA := attrByName(t, eachA, "name")
 	if !hasReference(nameAttrA.References, "each.key") {
 		t.Errorf("expected raw each.key traversal in name attribute, got %+v", nameAttrA.References)
@@ -320,6 +323,9 @@ func TestForEachCountDynamicFallback(t *testing.T) {
 	if nameAttr.Value != "" {
 		t.Errorf("expected no literal Value for an each.key-templated name when for_each isn't statically known, got %q", nameAttr.Value)
 	}
+	if single.BaseAddress != "" || single.InstanceCount != 0 {
+		t.Errorf("expected no BaseAddress/InstanceCount on a non-expanded fallback block, got %q/%d", single.BaseAddress, single.InstanceCount)
+	}
 }
 
 func TestForEachEmptyMapProducesNoInstances(t *testing.T) {
@@ -350,6 +356,9 @@ func TestModuleForEachExpandsPerInstanceChildScopes(t *testing.T) {
 
 	root := moduleByPrefix(t, out, "")
 	moduleA := blockByAddress(t, root, `module.storage["a"]`)
+	if moduleA.BaseAddress != "module.storage" || moduleA.InstanceCount != 2 {
+		t.Errorf(`expected module.storage["a"]'s BaseAddress/InstanceCount to be "module.storage"/2, got %q/%d`, moduleA.BaseAddress, moduleA.InstanceCount)
+	}
 	locationA := attrByName(t, moduleA, "location")
 	if locationA.Value != "westeurope" {
 		t.Errorf(`expected module.storage["a"]'s location Value to resolve to "westeurope" (each.value bound), got %q`, locationA.Value)

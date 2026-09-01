@@ -2,7 +2,7 @@
   "name": "tf-graph-visualizer",
   "displayName": "Terraform Graph Visualizer",
   "description": "Static, offline dependency-graph visualizer for Terraform configuration directories. Click a node to jump straight to its source.",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "private": true,
   "publisher": "JordanWalker",
   "license": "SEE LICENSE IN LICENSE",
@@ -70,13 +70,15 @@
     }
   },
   "scripts": {
-    "build": "node esbuild.js",
+    "build:native": "bash tools/tf-hcl-graph/build.sh",
+    "build": "npm run build:native && node esbuild.js",
     "watch": "node esbuild.js --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p webview/tsconfig.json",
     "test": "mocha",
     "pretest": "npm run typecheck",
     "test:integration": "node out/test/runTest.js",
-    "pretest:integration": "npm run build && tsc -p tsconfig.test.json"
+    "pretest:integration": "npm run build && tsc -p tsconfig.test.json",
+    "package": "npm run build && bash scripts/package-all-targets.sh"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.3",

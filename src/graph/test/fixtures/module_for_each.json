@@ -50,6 +50,8 @@
           "type": "",
           "name": "storage[\"a\"]",
           "address": "module.storage[\"a\"]",
+          "baseAddress": "module.storage",
+          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/module_for_each/main.tf",
             "startLine": 6,
@@ -133,6 +135,8 @@
           "type": "",
           "name": "storage[\"b\"]",
           "address": "module.storage[\"b\"]",
+          "baseAddress": "module.storage",
+          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/module_for_each/main.tf",
             "startLine": 6,

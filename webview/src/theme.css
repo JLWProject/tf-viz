@@ -547,6 +547,20 @@ body {
   transition: stroke-width 160ms ease-out;
 }
 
+/* A collapsed instance-group summary card's "stacked cards" affordance (see
+   render.ts's buildNode `node.isInstanceSummary` branch) - two smaller
+   offset rects peeking out from behind the front `.node-rect`, reading as
+   "more than one of these" before the eye even reaches the ×N in the name.
+   Deliberately flat/muted (no gradient, low opacity, no own drop shadow)
+   so they recede behind the real card instead of competing with it. */
+.node-stack-shadow {
+  fill: var(--vscode-editor-background);
+  stroke: var(--tf-accent-primary);
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
 /* ---- Typography hierarchy -----------------------------------------------
    name = primary (bold, full editor-foreground contrast), type = secondary
    (regular weight, softly muted), detail = tertiary (smallest, most muted,
@@ -598,6 +612,30 @@ body {
 .node-icon-badge {
   fill: var(--tf-accent-primary);
   fill-opacity: 0.16;
+}
+
+/* Instance-group expand/collapse toggle badge (render.ts's buildNode,
+   instanceGroups.ts) - the icon badge's own visual treatment, mirrored into
+   the opposite (top-right) corner, but interactive: a distinct hover state
+   (stronger fill, `cursor: pointer` instead of the card's own `grab`) marks
+   it as its own click target separate from the whole-card
+   navigate/drag behavior. */
+.node-group-toggle {
+  cursor: pointer;
+}
+
+.node-group-toggle-badge {
+  fill: var(--tf-accent-primary);
+  fill-opacity: 0.16;
+  transition: fill-opacity 120ms ease-out;
+}
+
+.node-group-toggle:hover .node-group-toggle-badge {
+  fill-opacity: 0.32;
+}
+
+.node-group-toggle-glyph {
+  fill: var(--tf-accent-primary);
 }
 
 /* resource/data: the "real infrastructure" nodes - solid border, strongest accent. */

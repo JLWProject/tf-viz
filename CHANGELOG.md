@@ -5,6 +5,17 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
+## [0.0.29]
+
+- A large literal `count`/`for_each` instance group (more than 5 instances)
+  now collapses into one "N instances" summary card by default, instead of
+  drawing every instance as a full card. Click the small badge in the
+  summary card's top-right corner to expand it back to the individual
+  instances; click that same badge on any expanded instance to re-collapse
+  the whole group. Only applies to `resource`/`data` groups — a `module`
+  for_each/count group is unaffected for now (a module node has no card of
+  its own to attach the toggle to).
+
 ## [0.0.28]
 
 - Removed the redundant edge that used to land on a module cluster's own

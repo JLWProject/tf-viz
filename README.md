@@ -27,6 +27,9 @@ credentials, no network calls.
   their default.
 - **Draggable, remembered layout** — reposition any node; layouts persist
   per Terraform directory.
+- **Collapsible instance groups** — a large `count`/`for_each` fan-out (more
+  than 5 instances) collapses into one summary card by default; expand it
+  back to the individual instances with a click.
 - **Theme-aware** — colors track your actual VS Code theme, light or dark.
 - **Export HTML** — save the graph as a single self-contained, interactive
   file that needs no VS Code to open.
@@ -104,6 +107,16 @@ The search box filters the graph *and* the side panel together by address/type/n
   reference to the whole resource with no index (valid Terraform for "all
   instances at once", e.g. a `for` expression iterating it) fans out to every
   instance instead of being dropped.
+- A `resource`/`data` instance group past 5 instances collapses into one
+  "N instances" summary card by default, rather than drawing every instance
+  as a full card — the small badge in its top-right corner expands it back
+  out; the same badge on any expanded instance re-collapses the whole group.
+  Purely a display choice made in the webview — the underlying graph always
+  has every instance, so search, click-to-navigate, and the side panel's
+  Resources/Data Sources lists are unaffected by collapse state. `module`
+  for_each/count groups aren't collapsed this way yet — a module has no card
+  of its own to attach the toggle to (it's represented by its child cluster
+  instead).
 - `module` blocks expand the same way: `module.name["a"]`/`module.name[0]`, each
   with its own independently-recursed child scope, so e.g.
   `module.name["a"].some_resource` and `module.name["b"].some_resource` are
@@ -143,6 +156,9 @@ The search box filters the graph *and* the side panel together by address/type/n
   value derived from a variable, another resource, or a function this tool
   doesn't evaluate falls back to a single, unindexed node for that resource,
   same as before this was added.
+- Instance-group collapsing only applies to `resource`/`data` fan-outs, not
+  `module` for_each/count — a module node has no card of its own to attach
+  the expand/collapse toggle to (backlog: cluster-level collapsing).
 - No live file-watching yet — use the refresh command after edits.
 - Dragging a node doesn't reflow anything else around it, and a node dragged far
   enough can end up visually outside its module's background panel. There's
@@ -153,7 +169,9 @@ The search box filters the graph *and* the side panel together by address/type/n
 
 ```
 npm install
-npm run build              # esbuild: extension host + webview
+npm run build               # cross-compiles all 6 tf-hcl-graph targets (needs
+                             # a real Go toolchain on PATH), then esbuild:
+                             # extension host + webview
 npm run typecheck
 npm test                    # plain unit tests (graph resolution, layout, root resolution)
 npm run test:integration    # @vscode/test-electron, launches a real VS Code host
@@ -162,10 +180,13 @@ npm run test:integration    # @vscode/test-electron, launches a real VS Code hos
 Press F5 in VS Code (launch config included) to run a live Extension Development
 Host against the bundled `nested_module` fixture.
 
-`tools/tf-hcl-graph` is a separate Go module — `cd tools/tf-hcl-graph && go build -o
-bin/$(go env GOOS)-$(go env GOARCH)/tf-hcl-graph . && go test ./...` for a single
-local build during iteration, matching the `bin/<platform>-<arch>/` layout
-`src/hclGraphCli.ts` resolves at runtime.
+`tools/tf-hcl-graph` is a separate Go module. `npm run build` (or its
+`npm run build:native` half alone) always cross-compiles all 6 platform
+targets via `tools/tf-hcl-graph/build.sh` — for faster iteration on just the
+Go side, `cd tools/tf-hcl-graph && go build -o bin/$(go env GOOS)-$(go env
+GOARCH)/tf-hcl-graph . && go test ./...` builds a single local target only,
+matching the same `bin/<platform>-<arch>/` layout `src/hclGraphCli.ts`
+resolves at runtime.
 
 `webview/dev-preview*.html` are dev-only harnesses (not shipped — excluded via
 `.vscodeignore`) that load the real built webview bundle directly in a plain
@@ -180,6 +201,22 @@ not just guesses.
 `tf-hcl-graph` ships as a native binary, so the extension is published as six
 platform-specific `.vsix` packages rather than one universal one — each
 containing only the single binary that platform needs.
+
+```
+npm run package   # cross-compiles all 6 targets (npm run build:native),
+                   # bundles the webview/extension host (node esbuild.js),
+                   # then packages all 6 .vsix files into dist-vsix/
+```
+
+`npm run build` alone also always cross-compiles all 6 native targets first
+(`build:native`) before bundling — a Go-side change (`tools/tf-hcl-graph`)
+can't silently ship stale unless you skip `npm run build` entirely and call
+`node esbuild.js` directly. Needs a real Go toolchain on `PATH` (`go
+version`); `CGO_ENABLED=0` in `build.sh` means cross-compiling every target
+needs nothing beyond `go` itself - no per-target C toolchain.
+
+Equivalent to the above, spelled out one step at a time (useful if a single
+target's package needs re-running on its own):
 
 ```
 bash tools/tf-hcl-graph/build.sh   # cross-compiles all 6 targets into

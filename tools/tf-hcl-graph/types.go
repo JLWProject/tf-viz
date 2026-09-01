@@ -40,6 +40,16 @@ type Block struct {
 	Address    string      `json:"address"`
 	Range      Range       `json:"range"`
 	Attributes []Attribute `json:"attributes"`
+	// BaseAddress is the pre-instance-suffix address (e.g. "azurerm_x.y" for
+	// an instance addressed "azurerm_x.y[\"a\"]"), set only on blocks that
+	// are one instance of a literal for_each/count expansion - omitted
+	// (omitempty) for every other block, including a resource/data/module
+	// block with no for_each/count at all.
+	BaseAddress string `json:"baseAddress,omitempty"`
+	// InstanceCount is the total number of instances the owning
+	// for_each/count expanded to, repeated on every sibling instance's own
+	// Block - omitted (omitempty) alongside BaseAddress.
+	InstanceCount int `json:"instanceCount,omitempty"`
 }
 
 // Module is one logical Terraform module (the root, or a recursed-into local

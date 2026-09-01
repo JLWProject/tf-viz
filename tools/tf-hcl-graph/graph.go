@@ -206,12 +206,14 @@ func buildResourceLikeBlock(b *hclsyntax.Block, kind string) []Block {
 	blocks := make([]Block, 0, len(instances))
 	for _, inst := range instances {
 		blocks = append(blocks, Block{
-			Kind:       kind,
-			Type:       typ,
-			Name:       name + inst.suffix,
-			Address:    baseAddress + inst.suffix,
-			Range:      blockRange(b),
-			Attributes: collectAttributesWithContext(b.Body, inst.ctx),
+			Kind:          kind,
+			Type:          typ,
+			Name:          name + inst.suffix,
+			Address:       baseAddress + inst.suffix,
+			Range:         blockRange(b),
+			Attributes:    collectAttributesWithContext(b.Body, inst.ctx),
+			BaseAddress:   baseAddress,
+			InstanceCount: len(instances),
 		})
 	}
 	return blocks
@@ -279,12 +281,14 @@ func buildModuleBlocks(b *hclsyntax.Block) ([]Block, []moduleCallInstance) {
 	calls := make([]moduleCallInstance, 0, len(instances))
 	for _, inst := range instances {
 		blocks = append(blocks, Block{
-			Kind:       "module",
-			Type:       "",
-			Name:       name + inst.suffix,
-			Address:    baseAddress + inst.suffix,
-			Range:      blockRange(b),
-			Attributes: collectAttributesWithContext(b.Body, inst.ctx),
+			Kind:          "module",
+			Type:          "",
+			Name:          name + inst.suffix,
+			Address:       baseAddress + inst.suffix,
+			Range:         blockRange(b),
+			Attributes:    collectAttributesWithContext(b.Body, inst.ctx),
+			BaseAddress:   baseAddress,
+			InstanceCount: len(instances),
 		})
 		calls = append(calls, moduleCallInstance{block: b, suffix: inst.suffix, ctx: inst.ctx})
 	}

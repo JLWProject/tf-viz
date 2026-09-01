@@ -226,7 +226,96 @@ listing needs its own clean history/issues/README.
       manual "Show Dependency Graph" command does, so it sticks for next
       time the panel is reopened.
 
+## v1.6 — shipped: collapsed/expandable large instance groups
+Built 2026-09-01, same day as scoping. Builds on the v1.2 `count`/`for_each`
+expansion (every literal instance already gets its own fully-addressed node
+- see `instances.go`/`buildResourceLikeBlock` in `graph.go`). Closes the gap
+where a literal `count = 50` (or an equally large `for_each` map/set) drew 50
+full cards, overwhelming the layout for real-world fan-outs. A large
+instance group now collapses into one "N instances" summary card by default,
+expandable back to the individual instances on click - the Go/TS graph model
+itself is unchanged; grouping is purely a webview-render concern layered on
+top after the fact.
+
+- [x] `tools/tf-hcl-graph`: `Block` (`types.go`) gains `BaseAddress string`/
+      `InstanceCount int` (both `omitempty`), populated in
+      `buildResourceLikeBlock`/`buildModuleBlocks` (`graph.go`) for every
+      literal for_each/count instance - the pre-suffix address and the
+      sibling-shared total count. Confirmed `Range` (`blockRange(b)`) was
+      already identical across every instance of a base address before this
+      change even started, so click-navigate needed zero changes to land on
+      the right source line for a collapsed summary card.
+- [x] `src/graph/types.ts` (`ParserBlock`) + `src/graph/graphModel.ts`
+      (`GraphNode`) mirror `baseAddress`/`instanceCount`, module-prefixed in
+      `buildGraphModel` the same way `address` already is. Also added
+      `isInstanceSummary?: boolean` to `GraphNode` - documented as
+      webview-synthesized only, never set by `buildGraphModel` itself.
+- [x] `webview/src/instanceGroups.ts` (new): pure `collapseInstanceGroups(model,
+      expandedGroups, threshold = 5)` transform, applied in `main.ts`'s
+      `rerender()` right after `filterModel()` and before `computeLayout()` -
+      deliberately NOT built into `layout.ts`/dagre at all, so dagre stays a
+      pure "lay out whatever GraphModel it's given" concern (same reasoning
+      already documented for `filterModel()`'s own placement). Any group over
+      the threshold collapses to one synthetic node addressed at the group's
+      `baseAddress`, edges re-targeted and deduplicated (a sibling-to-sibling
+      edge inside the same collapsed group is dropped as a self-loop), one
+      `addressLocations` entry copied over from any instance so the summary
+      card's click-to-navigate still resolves. **Real constraint found while
+      implementing, not anticipated in the original scoping**: a `module`-kind
+      node never gets its own card at all (`render.ts` skips it - its child
+      scope's own dagre cluster represents it instead), so a module for_each/
+      count group is explicitly excluded from collapsing here - collapsing
+      those would need cluster-level grouping, a different mechanism, left
+      for a later pass rather than shipping an invisible toggle. Resource/data
+      groups (the actually-common real-world case: per-AZ storage accounts,
+      per-environment app configs, etc.) are unaffected by this exclusion.
+- [x] `webview/src/render.ts`/`theme.css`: a collapsed summary card gets a
+      "stacked cards" affordance (two flat offset rects peeking out behind
+      the front card) plus its name rendered as `basename ×N`. Every grouped
+      node (summary or an already-expanded individual instance) gets its own
+      expand/collapse toggle badge mirrored into the top-right corner
+      (opposite the existing top-left icon badge), with its own pointerdown-
+      stopPropagation click handling so it never also triggers the card's
+      whole-body navigate/drag behavior (same technique `buildCluster()`
+      already used for its own click listener). **Caught by an actual
+      Playwright screenshot, not assumed**: the toggle glyph was first built
+      as a Unicode "▸"/"▾" `<text>` character, which looked fine on a single
+      barely-zoomed summary card but shrank to an illegible few-pixel smudge
+      once fit-to-view zoomed out further for a wide expanded group (the
+      vector-path icon badge right next to it stayed crisp at the same
+      scale). Replaced with a small filled `<polygon>` triangle instead -
+      matches this codebase's own existing convention (`icons.ts`) of never
+      drawing glyphs as rendered font characters - confirmed legible at the
+      same zoomed-out scale on a re-shot screenshot.
+- [x] `webview/src/main.ts`: `expandedInstanceGroups` tracked as a
+      webview-local `Set<baseAddress>`, reset to empty whenever a new `graph`
+      message arrives (same "never carry state from a previously-viewed
+      directory forward" convention as `positionOverrides`) - NOT persisted
+      to `workspaceState`, deliberately treated as a view toggle rather than
+      durable state like dragged node positions. Toggling triggers a full
+      `rerender()` (re-fit, not the drag callback's `resetView:false`) -
+      expanding/collapsing a large group is as structurally disruptive to the
+      layout as a search/toggle-triggered re-render, so preserving the
+      previous pan/zoom framing would likely leave the view pointed at empty
+      space or a now-tiny corner of a much bigger graph.
+- [x] Go tests (`graph_test.go`): `BaseAddress`/`InstanceCount` asserted for
+      for_each and count expansions (resource and module), asserted absent on
+      a non-expanded fallback block. TS tests: `graphModel.test.ts` asserts
+      the fields pass through onto `GraphNode`; new `instanceGroups.test.ts`
+      covers collapse/expand/threshold/edge-remap-and-dedup/module-exclusion
+      (8 cases). 175 total unit tests passing, both `tsconfig.json`/
+      `webview/tsconfig.json` typecheck clean, `esbuild.js` bundles clean.
+      Manual check: a synthetic 8-instance fixture run through the real
+      built webview bundle via Playwright (this sandbox had no cached
+      Chromium - installed one to do this) - confirmed collapsed-by-default
+      rendering, expand-on-click showing all 8 correctly addressed/wired
+      instances, and collapse-from-any-instance's-own-badge back to the
+      summary, screenshotted at each step.
+
 ## Backlog (not yet done)
+- Cluster-level collapsing for a large `module` for_each/count group (v1.6's
+  instance-group collapsing only applies to `resource`/`data` - a module node
+  has no card of its own to attach the toggle to, see v1.6 above)
 - Full registry/git module resolution without requiring a prior `terraform init`
 - `elkjs` fallback if dagre's compound-cluster layout looks inadequate at
   real-world scale

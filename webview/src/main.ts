@@ -6,6 +6,7 @@ import './theme.css';
 import { computeLayout } from './layout';
 import type { GraphEdge, GraphModel, GraphNode } from './layout';
 import { isConfigKind, renderGraph } from './render';
+import { collapseInstanceGroups } from './instanceGroups';
 import { attachPanZoom } from './panzoom';
 import type { PanZoom } from './panzoom';
 import { pickNodeDetail } from './nodeDetail';
@@ -209,6 +210,17 @@ let panZoom: PanZoom | null = null;
  */
 let positionOverrides = new Map<string, { x: number; y: number }>();
 
+/**
+ * Base addresses (see graphModel.ts's `baseAddress`) the user has manually
+ * expanded back out of their default collapsed "N instances" summary card
+ * (see instanceGroups.ts) - repopulated wholesale to empty whenever a new
+ * `graph` message arrives, same "never carry stale state from a previously-
+ * viewed directory forward" convention as `positionOverrides` above (though
+ * unlike positions, expand/collapse state isn't persisted to
+ * `workspaceState` - it's treated as a view toggle, not durable state).
+ */
+let expandedInstanceGroups = new Set<string>();
+
 function nodeMatchesSearch(node: GraphNode, query: string): boolean {
   if (query === '') {
     return true;
@@ -401,9 +413,15 @@ function rerender(options?: { resetView?: boolean }): void {
   const previousTransform = panZoom?.getTransform();
 
   const filtered = filterModel(latestModel);
+  // Applied after search/kind filtering, right before layout: a large
+  // for_each/count instance group collapses to one summary card by default
+  // (see instanceGroups.ts), unless the user already expanded that specific
+  // group. A no-op (returns `filtered` itself) for the common case of no
+  // group past the threshold.
+  const collapsed = collapseInstanceGroups(filtered, expandedInstanceGroups);
   const showConfig = configToggleInput.checked;
   const variablesByAddress = showConfig ? buildVariablesByAddress(latestModel) : undefined;
-  const positioned = computeLayout(filtered, {
+  const positioned = computeLayout(collapsed, {
     ...(variablesByAddress ? { variablesByAddress } : {}),
     positionOverrides,
   });
@@ -421,6 +439,23 @@ function rerender(options?: { resetView?: boolean }): void {
         type: 'positionsChanged',
         positions: Object.fromEntries(positionOverrides),
       });
+    },
+    (baseAddress) => {
+      // Toggle: expand a still-collapsed group, or re-collapse one the user
+      // had previously expanded - collapseInstanceGroups() only ever
+      // consults membership in this set, so add/delete is the whole story.
+      if (expandedInstanceGroups.has(baseAddress)) {
+        expandedInstanceGroups.delete(baseAddress);
+      } else {
+        expandedInstanceGroups.add(baseAddress);
+      }
+      // A full re-fit, not resetView:false like the drag callback above -
+      // expanding/collapsing a group changes the layout as structurally as a
+      // search/toggle-triggered re-render does (potentially dozens of nodes
+      // appearing/disappearing at once), so preserving the previous pan/zoom
+      // framing would likely leave the view pointed at empty space or a
+      // now-tiny corner of a much bigger graph.
+      rerender();
     }
   );
 
@@ -549,6 +584,7 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
   // stored positions (or none at all) should entirely replace, never merge
   // with, overrides left over from a previous directory's session.
   positionOverrides = new Map(Object.entries(message.positions ?? {}));
+  expandedInstanceGroups = new Set();
   rerender();
 });
 
