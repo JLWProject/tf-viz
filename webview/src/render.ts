@@ -219,6 +219,17 @@ function buildCluster(cluster: PositionedCluster, onNodeClick: (address: string)
   const isModuleCluster = cluster.module !== 'root';
   const group = svgEl('g', { class: isModuleCluster ? 'cluster cluster-module' : 'cluster' });
   if (isModuleCluster) {
+    // `cluster.module` is the scope name every node *inside* this module
+    // shares (its own `.module` field) - NOT that module block's own
+    // address. A module block's own edges are always dropped entirely (see
+    // layout.ts's computeLayout `moduleNodeAddresses` filter - a `module`
+    // node is never an edge endpoint in PositionedGraph, since it never
+    // gets a card of its own to point an arrow at). `data-module` lets
+    // wireFocusHighlight() below highlight a hovered cluster by the union
+    // of its real member nodes' own edges instead - the root cluster has no
+    // module scope of its own and is deliberately left without one, same
+    // reasoning as it staying non-interactive below.
+    group.setAttribute('data-module', cluster.module);
     // Same reason buildNode's own onPointerDown stops propagation: without
     // this, panzoom.ts's svgRoot-level pointerdown listener sees the event
     // first, calls setPointerCapture on svgRoot, and the click this group
@@ -317,6 +328,12 @@ function buildEdge(edge: PositionedEdge): SVGPathElement {
     d: smoothEdgePath(edge.points),
     class: 'edge-path',
     'marker-end': 'url(#tf-graph-arrowhead)',
+    // Consulted only by wireFocusHighlight() below, to find every edge
+    // touching a hovered node/cluster without re-deriving it from
+    // PositionedGraph.edges (which has no direct link back to the DOM
+    // elements built here).
+    'data-from': edge.from,
+    'data-to': edge.to,
   });
 }
 
@@ -466,8 +483,7 @@ function transformDeltaByInverseMatrix(matrix: DOMMatrix, dx: number, dy: number
 function buildNode(
   node: PositionedNode,
   onNodeClick: (address: string) => void,
-  onNodeDragEnd: (address: string, x: number, y: number) => void,
-  onToggleGroup: (baseAddress: string) => void
+  onNodeDragEnd: (address: string, x: number, y: number) => void
 ): SVGGElement {
   // `node` is never a `variable`/`output`/`locals` kind as of this pass (see
   // filterModel() in main.ts - those kinds are stripped out of the graph
@@ -475,40 +491,14 @@ function buildNode(
   // kinds" branch here is now permanently dead and has been removed;
   // `kindClass` alone is enough.
   const group = svgEl('g', {
-    class: `node ${kindClass(node.kind)}${node.isInstanceSummary ? ' node-instance-summary' : ''}`,
+    class: `node ${kindClass(node.kind)}`,
     'data-address': node.address,
     transform: `translate(${node.x - node.width / 2}, ${node.y - node.height / 2})`,
   });
 
   const title = svgEl('title');
-  title.textContent = node.isInstanceSummary
-    ? `${node.address} (${node.instanceCount} instances - click the badge to expand)`
-    : node.address;
+  title.textContent = node.address;
   group.appendChild(title);
-
-  // A collapsed instance-group summary card (see instanceGroups.ts) gets a
-  // "stacked cards" affordance - two smaller offset rects peeking out from
-  // behind the front card, reading as "more than one of these" at a glance
-  // even before the eye reaches the ×N in its name/the corner badge below.
-  // Drawn directly on `group` (not inside `.node-card`, see below) so they
-  // sit fully behind that card's own background/shadow, not just behind its
-  // content.
-  if (node.isInstanceSummary) {
-    const stackOffsets = [8, 4];
-    for (const offset of stackOffsets) {
-      group.appendChild(
-        svgEl('rect', {
-          x: offset,
-          y: offset,
-          width: node.width,
-          height: node.height,
-          rx: cardCornerRadius(node.height),
-          ry: cardCornerRadius(node.height),
-          class: 'node-stack-shadow',
-        })
-      );
-    }
-  }
 
   // Everything visual (card background, badge, icon, text) lives inside its
   // own inner group rather than directly on `group` above, specifically so
@@ -566,62 +556,6 @@ function buildNode(
   icon.setAttribute('x', String(ICON_BADGE_INSET + (ICON_BADGE_SIZE - ICON_SIZE) / 2));
   icon.setAttribute('y', String(ICON_BADGE_INSET + (ICON_BADGE_SIZE - ICON_SIZE) / 2));
   card.appendChild(icon);
-
-  // Instance-group expand/collapse toggle (see instanceGroups.ts) - mirrors
-  // the icon badge's own inset/size in the opposite (top-right) corner, only
-  // ever present on a node that's part of a for_each/count instance group:
-  // a collapsed summary card ("▸", click expands the whole group back to its
-  // individual instances) or any one of an already-expanded group's own
-  // individual instance cards ("▾", click re-collapses that whole group back
-  // to one summary card - no single designated "header" instance needed,
-  // any member works since they all share the same baseAddress). A separate
-  // click target from the card body's own whole-card click-to-navigate/drag
-  // handling below - its own pointerdown stops propagation before that outer
-  // handling ever sees the event, same technique buildCluster() already uses
-  // for its own click listener.
-  if (node.baseAddress) {
-    const toggleBadge = svgEl('g', { class: 'node-group-toggle' });
-    const toggleX = node.width - ICON_BADGE_INSET - ICON_BADGE_SIZE;
-    const toggleY = ICON_BADGE_INSET;
-    toggleBadge.appendChild(
-      svgEl('rect', {
-        x: toggleX,
-        y: toggleY,
-        width: ICON_BADGE_SIZE,
-        height: ICON_BADGE_SIZE,
-        rx: ICON_BADGE_RADIUS,
-        ry: ICON_BADGE_RADIUS,
-        class: 'node-icon-badge node-group-toggle-badge',
-      })
-    );
-    // A small filled triangle drawn as a vector <polygon>, not a Unicode
-    // "▸"/"▾" text glyph - measured against a real render (see
-    // instanceGroups.ts's plan notes), a text glyph shrank to an unreadable
-    // few-pixel smudge at the zoom levels a wide expanded group's fit-to-view
-    // lands on, while the icon badge right next to it (buildIcon's own
-    // stroke-path glyphs) stayed crisp at the same scale - vector geometry
-    // scales cleanly where a tiny font glyph's actual ink does not. Matches
-    // this codebase's own established convention (icons.ts) of drawing every
-    // other glyph as paths, never as rendered font characters.
-    const cx = toggleX + ICON_BADGE_SIZE / 2;
-    const cy = toggleY + ICON_BADGE_SIZE / 2;
-    const points = node.isInstanceSummary
-      ? `${cx - 3},${cy - 5} ${cx - 3},${cy + 5} ${cx + 4},${cy}` // "▸" expand
-      : `${cx - 5},${cy - 3} ${cx + 5},${cy - 3} ${cx},${cy + 4}`; // "▾" collapse
-    toggleBadge.appendChild(svgEl('polygon', { points, class: 'node-group-toggle-glyph' }));
-    const toggleTitle = svgEl('title');
-    toggleTitle.textContent = node.isInstanceSummary
-      ? `Expand ${node.instanceCount} instances`
-      : 'Collapse instances';
-    toggleBadge.appendChild(toggleTitle);
-
-    toggleBadge.addEventListener('pointerdown', (event) => event.stopPropagation());
-    toggleBadge.addEventListener('click', (event) => {
-      event.stopPropagation();
-      onToggleGroup(node.baseAddress!);
-    });
-    card.appendChild(toggleBadge);
-  }
 
   const textCenterX = node.width / 2;
 
@@ -802,20 +736,151 @@ function buildNode(
 }
 
 /**
+ * Hovering a node, or a module cluster's backdrop, fades every edge and
+ * every other node/cluster NOT directly attached to it down to near-
+ * invisible, so a dense wiring/association fan-out only reads as a tangle
+ * at a glance - hovering any one resource in it isolates just that
+ * resource's own connections. Pure hover state, nothing persisted or
+ * re-laid-out: leaving the node instantly restores full opacity everywhere
+ * (see theme.css's `.graph-dimmed`/`.edge-dimmed`).
+ *
+ * A module cluster has no edges of its own to highlight - a `module`
+ * node's own edges are always dropped upstream (see layout.ts's
+ * computeLayout `moduleNodeAddresses` filter), since it never gets a card
+ * of its own for an arrow to point at. So hovering one instead highlights
+ * the *union* of its real member nodes' own edges/neighbors (`membersByModule`
+ * below, keyed by `PositionedNode.module` - the same scope name
+ * `buildCluster`'s `data-module` carries) - "what does everything inside
+ * this module connect to", not a single fake address no edge would ever
+ * reference.
+ *
+ * Both adjacency and membership are walked once here (adjacency from the
+ * already-built DOM's `data-from`/`data-to`/`data-address`, membership from
+ * `nodes` directly) rather than threaded through further, since nothing
+ * before this point needs either - keeping it a render.ts-only concern,
+ * same as the click/drag wiring above.
+ */
+function wireFocusHighlight(
+  nodesGroup: SVGGElement,
+  clustersGroup: SVGGElement,
+  edgesGroup: SVGGElement,
+  nodes: readonly PositionedNode[]
+): void {
+  const nodeElements = Array.from(nodesGroup.children) as SVGGElement[];
+  const clusterElements = (Array.from(clustersGroup.children) as SVGGElement[]).filter((el) =>
+    el.hasAttribute('data-module')
+  );
+  const edgeElements = Array.from(edgesGroup.children) as SVGPathElement[];
+
+  // address -> the edges touching it, and address -> the addresses at the
+  // other end of each of those edges - built once so a hover only ever has
+  // to look up its own address(es), not re-walk every edge.
+  const edgesByAddress = new Map<string, SVGPathElement[]>();
+  const neighborsByAddress = new Map<string, Set<string>>();
+  function link(address: string, neighbor: string, edgeEl: SVGPathElement): void {
+    const edges = edgesByAddress.get(address) ?? [];
+    edges.push(edgeEl);
+    edgesByAddress.set(address, edges);
+    const neighbors = neighborsByAddress.get(address) ?? new Set<string>();
+    neighbors.add(neighbor);
+    neighborsByAddress.set(address, neighbors);
+  }
+  for (const edgeEl of edgeElements) {
+    const from = edgeEl.getAttribute('data-from');
+    const to = edgeEl.getAttribute('data-to');
+    if (!from || !to) {
+      continue;
+    }
+    link(from, to, edgeEl);
+    link(to, from, edgeEl);
+  }
+
+  // module scope name -> its real member nodes' own addresses. A `module`
+  // node itself is skipped, same reasoning as render.ts's own
+  // `renderGraph` skipping it when building `nodesGroup` - it never gets a
+  // card of its own to be "a member" of anything.
+  const membersByModule = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (node.kind === 'module') {
+      continue;
+    }
+    const members = membersByModule.get(node.module) ?? [];
+    members.push(node.address);
+    membersByModule.set(node.module, members);
+  }
+
+  function applyFocus(focusAddresses: ReadonlySet<string>): void {
+    const connectedEdges = new Set<SVGPathElement>();
+    const neighbors = new Set<string>();
+    for (const address of focusAddresses) {
+      for (const edgeEl of edgesByAddress.get(address) ?? []) {
+        connectedEdges.add(edgeEl);
+      }
+      for (const neighbor of neighborsByAddress.get(address) ?? []) {
+        neighbors.add(neighbor);
+      }
+    }
+    for (const el of nodeElements) {
+      const address = el.getAttribute('data-address') ?? '';
+      el.classList.toggle('graph-dimmed', !focusAddresses.has(address) && !neighbors.has(address));
+    }
+    for (const el of clusterElements) {
+      const members = membersByModule.get(el.getAttribute('data-module') ?? '') ?? [];
+      // Stays lit if it's the hovered cluster itself (a member is in
+      // focusAddresses) OR it merely contains a highlighted neighbor (a
+      // member elsewhere-in-focus's own dependency lives in this module) -
+      // the "which module owns the thing I depend on" case.
+      const relevant = members.some((address) => focusAddresses.has(address) || neighbors.has(address));
+      el.classList.toggle('graph-dimmed', !relevant);
+    }
+    for (const edgeEl of edgeElements) {
+      edgeEl.classList.toggle('edge-dimmed', !connectedEdges.has(edgeEl));
+    }
+  }
+
+  function clearFocus(): void {
+    for (const el of nodeElements) {
+      el.classList.remove('graph-dimmed');
+    }
+    for (const el of clusterElements) {
+      el.classList.remove('graph-dimmed');
+    }
+    for (const edgeEl of edgeElements) {
+      edgeEl.classList.remove('edge-dimmed');
+    }
+  }
+
+  for (const el of nodeElements) {
+    const address = el.getAttribute('data-address');
+    if (!address) {
+      continue;
+    }
+    el.addEventListener('pointerenter', () => applyFocus(new Set([address])));
+    el.addEventListener('pointerleave', clearFocus);
+  }
+  for (const el of clusterElements) {
+    const moduleScope = el.getAttribute('data-module');
+    if (!moduleScope) {
+      continue;
+    }
+    const members = membersByModule.get(moduleScope) ?? [];
+    el.addEventListener('pointerenter', () => applyFocus(new Set(members)));
+    el.addEventListener('pointerleave', clearFocus);
+  }
+}
+
+/**
  * Builds the full SVG DOM for a positioned graph inside `container`
  * (replacing any previous contents). `onNodeClick` fires with a node's full
  * address on a plain click; `onNodeDragEnd` fires instead (never both) with
  * the node's new world-space x/y once a drag that moved past the click
- * threshold completes. `onToggleGroup` fires with a node's `baseAddress`
- * when its expand/collapse badge (see buildNode) is clicked - never fires
- * `onNodeClick`/`onNodeDragEnd` for that same interaction.
+ * threshold completes.
  */
 export function renderGraph(
   container: HTMLElement,
   positioned: PositionedGraph,
   onNodeClick: (address: string) => void,
-  onNodeDragEnd: (address: string, x: number, y: number) => void,
-  onToggleGroup: (baseAddress: string) => void
+  onNodeDragEnd: (address: string, x: number, y: number) => void
 ): void {
   container.innerHTML = '';
 
@@ -854,9 +919,11 @@ export function renderGraph(
     if (node.kind === 'module') {
       continue;
     }
-    nodesGroup.appendChild(buildNode(node, onNodeClick, onNodeDragEnd, onToggleGroup));
+    nodesGroup.appendChild(buildNode(node, onNodeClick, onNodeDragEnd));
   }
   viewport.appendChild(nodesGroup);
+
+  wireFocusHighlight(nodesGroup, clustersGroup, edgesGroup, positioned.nodes);
 
   svg.appendChild(viewport);
   container.appendChild(svg);

@@ -5,16 +5,19 @@ in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.c
 
 ## [Unreleased]
 
-## [0.0.29]
+## [0.0.31]
 
-- A large literal `count`/`for_each` instance group (more than 5 instances)
-  now collapses into one "N instances" summary card by default, instead of
-  drawing every instance as a full card. Click the small badge in the
-  summary card's top-right corner to expand it back to the individual
-  instances; click that same badge on any expanded instance to re-collapse
-  the whole group. Only applies to `resource`/`data` groups — a `module`
-  for_each/count group is unaffected for now (a module node has no card of
-  its own to attach the toggle to).
+- Reverted 0.0.29's collapsible large `count`/`for_each` instance groups —
+  every literal instance draws its own card again, with no summary card and
+  no expand/collapse toggle badge.
+- Removed the small "⌄ Show toolbar" tab that hung off the top edge of the
+  canvas whenever the toolbar was hidden — right-click the graph to bring
+  the toolbar back instead.
+- Hovering a resource/data card, or a module's own panel, now fades every
+  edge and node NOT directly connected to it — a dense wiring/association
+  fan-out (e.g. `azurerm_subnet_network_security_group_association`-style
+  hub-and-spoke resources) only shows in full once you're actually looking
+  at one resource, instead of reading as a permanent tangle.
 
 ## [0.0.28]
 

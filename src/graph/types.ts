@@ -67,19 +67,6 @@ export interface ParserBlock {
   address: string;
   range: SourceRange;
   attributes: ParserAttribute[];
-  /**
-   * The pre-instance-suffix address (e.g. "azurerm_x.y" for an instance
-   * addressed `azurerm_x.y["a"]`), present only on a block that is one
-   * instance of a literal for_each/count expansion - absent (the Go side
-   * omits the JSON key via `omitempty`) for every other block, including a
-   * resource/data/module block with no for_each/count at all.
-   */
-  baseAddress?: string;
-  /**
-   * Total instance count the owning for_each/count expanded to, repeated on
-   * every sibling instance's own block - absent alongside baseAddress.
-   */
-  instanceCount?: number;
 }
 
 /**

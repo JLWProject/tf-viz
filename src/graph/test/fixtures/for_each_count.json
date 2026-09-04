@@ -50,8 +50,6 @@
           "type": "azurerm_storage_account",
           "name": "each_example[\"a\"]",
           "address": "azurerm_storage_account.each_example[\"a\"]",
-          "baseAddress": "azurerm_storage_account.each_example",
-          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
             "startLine": 6,
@@ -146,8 +144,6 @@
           "type": "azurerm_storage_account",
           "name": "each_example[\"b\"]",
           "address": "azurerm_storage_account.each_example[\"b\"]",
-          "baseAddress": "azurerm_storage_account.each_example",
-          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
             "startLine": 6,
@@ -242,8 +238,6 @@
           "type": "azurerm_storage_account",
           "name": "count_example[0]",
           "address": "azurerm_storage_account.count_example[0]",
-          "baseAddress": "azurerm_storage_account.count_example",
-          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
             "startLine": 14,
@@ -328,8 +322,6 @@
           "type": "azurerm_storage_account",
           "name": "count_example[1]",
           "address": "azurerm_storage_account.count_example[1]",
-          "baseAddress": "azurerm_storage_account.count_example",
-          "instanceCount": 2,
           "range": {
             "file": "/Users/jordanwalker/Library/CloudStorage/OneDrive-JLWProject/repo/personal/tf-viz/tools/tf-hcl-graph/testdata/for_each_count/main.tf",
             "startLine": 14,

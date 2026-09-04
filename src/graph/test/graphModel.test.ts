@@ -129,22 +129,6 @@ describe('buildGraphModel', () => {
     it('produces no edges from each.*/count.* usage (only the 4 genuine per-instance edges exist)', () => {
       assert.equal(model.edges.length, 4);
     });
-
-    it('carries baseAddress/instanceCount through onto each expanded instance node', () => {
-      const byAddress = new Map(model.nodes.map((n) => [n.address, n]));
-      const eachA = byAddress.get('azurerm_storage_account.each_example["a"]')!;
-      assert.equal(eachA.baseAddress, 'azurerm_storage_account.each_example');
-      assert.equal(eachA.instanceCount, 2);
-      const count0 = byAddress.get('azurerm_storage_account.count_example[0]')!;
-      assert.equal(count0.baseAddress, 'azurerm_storage_account.count_example');
-      assert.equal(count0.instanceCount, 2);
-    });
-
-    it('leaves baseAddress/instanceCount undefined on a non-expanded node', () => {
-      const rg = model.nodes.find((n) => n.address === 'azurerm_resource_group.rg')!;
-      assert.equal(rg.baseAddress, undefined);
-      assert.equal(rg.instanceCount, undefined);
-    });
   });
 
   describe('for_each_set fixture', () => {
@@ -193,13 +177,6 @@ describe('buildGraphModel', () => {
     it('resolves both instances\' var.resource_group_name up to the same root resource', () => {
       assert.ok(hasEdge(model.edges, 'module.storage["a"]', 'azurerm_resource_group.rg'));
       assert.ok(hasEdge(model.edges, 'module.storage["b"]', 'azurerm_resource_group.rg'));
-    });
-
-    it('carries baseAddress/instanceCount through onto each module instance node', () => {
-      const byAddress = new Map(model.nodes.map((n) => [n.address, n]));
-      const storageA = byAddress.get('module.storage["a"]')!;
-      assert.equal(storageA.baseAddress, 'module.storage');
-      assert.equal(storageA.instanceCount, 2);
     });
   });
 

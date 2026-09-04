@@ -37,26 +37,6 @@ export interface GraphNode {
    * "which variables feed into me" as inline chips instead.
    */
   referencedVariables: string[];
-  /**
-   * The pre-instance-suffix address (e.g. "azurerm_x.y" for an instance
-   * addressed `azurerm_x.y["a"]", module-prefixed the same way `address`
-   * is), present only on a node that is one instance of a literal
-   * for_each/count expansion - mirrors `ParserBlock.baseAddress`, absent for
-   * every other node.
-   */
-  baseAddress?: string;
-  /**
-   * Total instance count the owning for_each/count expanded to, repeated on
-   * every sibling instance's own node - mirrors `ParserBlock.instanceCount`,
-   * absent alongside baseAddress.
-   */
-  instanceCount?: number;
-  /**
-   * Set only on a synthetic "N instances" summary node the *webview* builds
-   * when collapsing a large instance group (see webview/src/instanceGroups.ts)
-   * - never present on a node `buildGraphModel` itself produces below.
-   */
-  isInstanceSummary?: boolean;
 }
 
 /** One resolved dependency edge: `from` references `to`. */
@@ -149,7 +129,6 @@ export function buildGraphModel(parserOutput: ParserOutput): GraphModel {
         kind: block.kind,
         attributes,
         referencedVariables,
-        ...(block.baseAddress ? { baseAddress: scope.prefix + block.baseAddress, instanceCount: block.instanceCount } : {}),
       });
       addressLocations[fullAddress] = {
         file: block.range.file,

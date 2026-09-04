@@ -107,7 +107,6 @@ body {
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
-  position: relative; /* anchors .toolbar-reveal-tab below */
 }
 
 /* ---- Toolbar ---------------------------------------------------------- */
@@ -192,34 +191,6 @@ body {
 }
 
 .toolbar-button:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-}
-
-/* Slim tab hanging off the top edge, the only way to bring the toolbar back
-   once it's hidden (see main.ts's setToolbarHidden) - shown/hidden opposite
-   the toolbar itself, never both at once. */
-.toolbar-reveal-tab {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
-  border: 1px solid var(--vscode-button-border, transparent);
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  padding: 1px 10px 2px;
-  line-height: 1.2;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.toolbar-reveal-tab:hover {
-  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
-}
-
-.toolbar-reveal-tab:focus-visible {
   outline: 1px solid var(--vscode-focusBorder);
 }
 
@@ -447,10 +418,20 @@ body {
   stroke: var(--vscode-editorLineNumber-foreground, var(--vscode-panel-border));
   stroke-width: 1.5;
   stroke-linecap: round;
+  transition: opacity 120ms ease-out;
 }
 
 .edge-arrowhead {
   fill: var(--vscode-editorLineNumber-foreground, var(--vscode-panel-border));
+}
+
+/* Focus-highlight (render.ts's wireFocusHighlight): hovering a node/module
+   fades every edge NOT touching it - confirmed the shared <marker> arrowhead
+   (every edge references the same one, see buildDefs) fades along with the
+   path that's referencing it, not just the line, so this alone is enough to
+   also dim the arrowheads on faded edges. */
+.edge-path.edge-dimmed {
+  opacity: 0.15;
 }
 
 /* ---- Node shadow/gradient defs (render.ts's <defs>) --------------------*/
@@ -502,6 +483,23 @@ body {
   cursor: grab;
 }
 
+/* Focus-highlight (render.ts's wireFocusHighlight): shared between `.node`
+   and a `.cluster-module` (a module cluster stands in for its own node as an
+   edge endpoint - see buildCluster's `data-address`), so hovering either
+   kind of endpoint dims every OTHER node/cluster the same way, leaving only
+   the hovered one and its direct neighbors at full opacity. The root
+   cluster never receives `.graph-dimmed` (it has no `data-address`, see
+   buildCluster) and so always stays fully visible as the backdrop. */
+.node,
+.cluster {
+  transition: opacity 120ms ease-out;
+}
+
+.node.graph-dimmed,
+.cluster.graph-dimmed {
+  opacity: 0.2;
+}
+
 /* Whole-card dragging (see render.ts's buildNode pointer handlers) - toggled
    on/off directly (not `:active`, since the drag is tracked via pointer
    capture rather than a simple held-mouse-button state, and needs to keep
@@ -545,20 +543,6 @@ body {
   stroke: var(--tf-accent-primary);
   stroke-width: 1.5;
   transition: stroke-width 160ms ease-out;
-}
-
-/* A collapsed instance-group summary card's "stacked cards" affordance (see
-   render.ts's buildNode `node.isInstanceSummary` branch) - two smaller
-   offset rects peeking out from behind the front `.node-rect`, reading as
-   "more than one of these" before the eye even reaches the ×N in the name.
-   Deliberately flat/muted (no gradient, low opacity, no own drop shadow)
-   so they recede behind the real card instead of competing with it. */
-.node-stack-shadow {
-  fill: var(--vscode-editor-background);
-  stroke: var(--tf-accent-primary);
-  stroke-opacity: 0.35;
-  stroke-width: 1.5;
-  opacity: 0.6;
 }
 
 /* ---- Typography hierarchy -----------------------------------------------
@@ -612,30 +596,6 @@ body {
 .node-icon-badge {
   fill: var(--tf-accent-primary);
   fill-opacity: 0.16;
-}
-
-/* Instance-group expand/collapse toggle badge (render.ts's buildNode,
-   instanceGroups.ts) - the icon badge's own visual treatment, mirrored into
-   the opposite (top-right) corner, but interactive: a distinct hover state
-   (stronger fill, `cursor: pointer` instead of the card's own `grab`) marks
-   it as its own click target separate from the whole-card
-   navigate/drag behavior. */
-.node-group-toggle {
-  cursor: pointer;
-}
-
-.node-group-toggle-badge {
-  fill: var(--tf-accent-primary);
-  fill-opacity: 0.16;
-  transition: fill-opacity 120ms ease-out;
-}
-
-.node-group-toggle:hover .node-group-toggle-badge {
-  fill-opacity: 0.32;
-}
-
-.node-group-toggle-glyph {
-  fill: var(--tf-accent-primary);
 }
 
 /* resource/data: the "real infrastructure" nodes - solid border, strongest accent. */

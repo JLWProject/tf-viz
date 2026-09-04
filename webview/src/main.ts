@@ -6,7 +6,6 @@ import './theme.css';
 import { computeLayout } from './layout';
 import type { GraphEdge, GraphModel, GraphNode } from './layout';
 import { isConfigKind, renderGraph } from './render';
-import { collapseInstanceGroups } from './instanceGroups';
 import { attachPanZoom } from './panzoom';
 import type { PanZoom } from './panzoom';
 import { pickNodeDetail } from './nodeDetail';
@@ -103,14 +102,14 @@ exportButton.textContent = 'Export HTML';
 
 // Hides the whole toolbar (search/toggles/buttons) so the graph can have the
 // full viewport - the toolbar itself disappears along with this button, so
-// getting it back goes through either `revealTab` (always-visible affordance,
-// see below) or the graph's own right-click menu (see the `contextmenu`
-// listener further down). Both call the same setToolbarHidden().
+// getting it back goes through the graph's own right-click menu (see the
+// `contextmenu` listener further down). Both call the same
+// setToolbarHidden().
 const hideToolbarButton = document.createElement('button');
 hideToolbarButton.type = 'button';
 hideToolbarButton.className = 'toolbar-button';
 hideToolbarButton.textContent = 'Hide toolbar';
-hideToolbarButton.title = 'Hide the toolbar (right-click the graph, or the tab at the top, to bring it back)';
+hideToolbarButton.title = 'Hide the toolbar (right-click the graph to bring it back)';
 
 toolbar.appendChild(searchInput);
 toolbar.appendChild(configToggleLabel);
@@ -118,18 +117,6 @@ toolbar.appendChild(liveToggleLabel);
 toolbar.appendChild(fitButton);
 toolbar.appendChild(exportButton);
 toolbar.appendChild(hideToolbarButton);
-
-// Slim always-visible tab hanging off the top edge - the only way back once
-// the toolbar itself (and this button along with it) is hidden. Kept as a
-// permanent, if unobtrusive, affordance rather than relying solely on the
-// right-click menu below, since a hidden toolbar with no visible way back
-// would be a dead end for anyone who doesn't think to right-click.
-const revealTab = document.createElement('button');
-revealTab.type = 'button';
-revealTab.className = 'toolbar-reveal-tab';
-revealTab.textContent = '⌄';
-revealTab.title = 'Show toolbar';
-revealTab.setAttribute('aria-label', 'Show toolbar');
 
 // The graph canvas and the new Outputs/Locals info panel sit side by side,
 // below the toolbar - a docked side panel rather than a bottom drawer, since
@@ -151,7 +138,6 @@ mainArea.appendChild(infoPanel);
 
 app.appendChild(toolbar);
 app.appendChild(mainArea);
-app.appendChild(revealTab);
 document.body.appendChild(app);
 
 // Minimal single-item right-click menu (see the `contextmenu` listener under
@@ -183,14 +169,13 @@ interface PersistedUiState {
 
 function setToolbarHidden(hidden: boolean): void {
   toolbar.hidden = hidden;
-  revealTab.hidden = !hidden;
   contextMenuToggleItem.textContent = hidden ? 'Show toolbar' : 'Hide toolbar';
   vscode.setState?.({ ...(vscode.getState?.() as PersistedUiState), toolbarHidden: hidden });
 }
 
 // Hidden by default (until a persisted preference says otherwise) so the
-// graph gets the full panel from first open - the reveal tab/right-click
-// menu above are exactly what make that a safe default rather than a trap.
+// graph gets the full panel from first open - the right-click menu above is
+// what makes that a safe default rather than a trap.
 setToolbarHidden(((vscode.getState?.() as PersistedUiState | undefined)?.toolbarHidden) ?? true);
 
 // ---- State ------------------------------------------------------------
@@ -209,17 +194,6 @@ let panZoom: PanZoom | null = null;
  * survive search/toggle-triggered re-renders within the same directory.
  */
 let positionOverrides = new Map<string, { x: number; y: number }>();
-
-/**
- * Base addresses (see graphModel.ts's `baseAddress`) the user has manually
- * expanded back out of their default collapsed "N instances" summary card
- * (see instanceGroups.ts) - repopulated wholesale to empty whenever a new
- * `graph` message arrives, same "never carry stale state from a previously-
- * viewed directory forward" convention as `positionOverrides` above (though
- * unlike positions, expand/collapse state isn't persisted to
- * `workspaceState` - it's treated as a view toggle, not durable state).
- */
-let expandedInstanceGroups = new Set<string>();
 
 function nodeMatchesSearch(node: GraphNode, query: string): boolean {
   if (query === '') {
@@ -413,15 +387,9 @@ function rerender(options?: { resetView?: boolean }): void {
   const previousTransform = panZoom?.getTransform();
 
   const filtered = filterModel(latestModel);
-  // Applied after search/kind filtering, right before layout: a large
-  // for_each/count instance group collapses to one summary card by default
-  // (see instanceGroups.ts), unless the user already expanded that specific
-  // group. A no-op (returns `filtered` itself) for the common case of no
-  // group past the threshold.
-  const collapsed = collapseInstanceGroups(filtered, expandedInstanceGroups);
   const showConfig = configToggleInput.checked;
   const variablesByAddress = showConfig ? buildVariablesByAddress(latestModel) : undefined;
-  const positioned = computeLayout(collapsed, {
+  const positioned = computeLayout(filtered, {
     ...(variablesByAddress ? { variablesByAddress } : {}),
     positionOverrides,
   });
@@ -439,23 +407,6 @@ function rerender(options?: { resetView?: boolean }): void {
         type: 'positionsChanged',
         positions: Object.fromEntries(positionOverrides),
       });
-    },
-    (baseAddress) => {
-      // Toggle: expand a still-collapsed group, or re-collapse one the user
-      // had previously expanded - collapseInstanceGroups() only ever
-      // consults membership in this set, so add/delete is the whole story.
-      if (expandedInstanceGroups.has(baseAddress)) {
-        expandedInstanceGroups.delete(baseAddress);
-      } else {
-        expandedInstanceGroups.add(baseAddress);
-      }
-      // A full re-fit, not resetView:false like the drag callback above -
-      // expanding/collapsing a group changes the layout as structurally as a
-      // search/toggle-triggered re-render does (potentially dozens of nodes
-      // appearing/disappearing at once), so preserving the previous pan/zoom
-      // framing would likely leave the view pointed at empty space or a
-      // now-tiny corner of a much bigger graph.
-      rerender();
     }
   );
 
@@ -584,12 +535,10 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
   // stored positions (or none at all) should entirely replace, never merge
   // with, overrides left over from a previous directory's session.
   positionOverrides = new Map(Object.entries(message.positions ?? {}));
-  expandedInstanceGroups = new Set();
   rerender();
 });
 
 hideToolbarButton.addEventListener('click', () => setToolbarHidden(true));
-revealTab.addEventListener('click', () => setToolbarHidden(false));
 
 function closeContextMenu(): void {
   contextMenu.hidden = true;
